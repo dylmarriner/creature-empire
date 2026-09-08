@@ -16,13 +16,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Rokit
+      - name: Install Rokit and pinned tools
         uses: CompeyDev/setup-rokit@v0.1.2
         with:
           version: v1.2.0
-
-      - name: Install pinned tools
-        run: rokit install
 
       - name: Install Wally dependencies
         run: wally install
