@@ -98,7 +98,10 @@ local function run()
         assignedCreatureIds = {},
         lastClaimedAt = 100,
     }
-    expectFalse(ProfileSchema.validate(unknownBuildingProfile), "unknown building definition rejected")
+    expectFalse(
+        ProfileSchema.validate(unknownBuildingProfile),
+        "unknown building definition rejected"
+    )
 
     local sparseAssignmentProfile = ProfileSchema.createDefault(100)
     sparseAssignmentProfile.buildings.building_instance_1 = {
@@ -110,7 +113,10 @@ local function run()
         assignedCreatureIds = { [2] = "creature_instance_1" },
         lastClaimedAt = 100,
     }
-    expectFalse(ProfileSchema.validate(sparseAssignmentProfile), "sparse building assignments rejected")
+    expectFalse(
+        ProfileSchema.validate(sparseAssignmentProfile),
+        "sparse building assignments rejected"
+    )
 
     local migrated = assert(ProfileSchema.migrate(profile))
     expectTrue(migrated ~= profile, "migration returns independent profile")
