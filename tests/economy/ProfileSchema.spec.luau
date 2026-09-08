@@ -46,6 +46,72 @@ local function run()
     negativeInventory.inventory.item_wood = -1
     expectFalse(ProfileSchema.validate(negativeInventory), "negative inventory rejected")
 
+    local validCreatureProfile = ProfileSchema.createDefault(100)
+    validCreatureProfile.creatures.creature_instance_1 = {
+        id = "creature_instance_1",
+        speciesId = "creature_rockhorn",
+        level = 1,
+        experience = 0,
+        traits = {},
+    }
+    expectTrue(ProfileSchema.validate(validCreatureProfile), "known creature species accepted")
+
+    local unknownCreatureProfile = ProfileSchema.createDefault(100)
+    unknownCreatureProfile.creatures.creature_instance_1 = {
+        id = "creature_instance_1",
+        speciesId = "creature_unknown",
+        level = 1,
+        experience = 0,
+        traits = {},
+    }
+    expectFalse(ProfileSchema.validate(unknownCreatureProfile), "unknown creature species rejected")
+
+    local sparseTraitsProfile = ProfileSchema.createDefault(100)
+    sparseTraitsProfile.creatures.creature_instance_1 = {
+        id = "creature_instance_1",
+        speciesId = "creature_rockhorn",
+        level = 1,
+        experience = 0,
+        traits = { [2] = "trait_sparse" },
+    }
+    expectFalse(ProfileSchema.validate(sparseTraitsProfile), "sparse creature traits rejected")
+
+    local validBuildingProfile = ProfileSchema.createDefault(100)
+    validBuildingProfile.buildings.building_instance_1 = {
+        id = "building_instance_1",
+        definitionId = "building_mine",
+        level = 1,
+        position = { x = 0, y = 0, z = 0 },
+        rotation = 0,
+        assignedCreatureIds = {},
+        lastClaimedAt = 100,
+    }
+    expectTrue(ProfileSchema.validate(validBuildingProfile), "known building definition accepted")
+
+    local unknownBuildingProfile = ProfileSchema.createDefault(100)
+    unknownBuildingProfile.buildings.building_instance_1 = {
+        id = "building_instance_1",
+        definitionId = "building_unknown",
+        level = 1,
+        position = { x = 0, y = 0, z = 0 },
+        rotation = 0,
+        assignedCreatureIds = {},
+        lastClaimedAt = 100,
+    }
+    expectFalse(ProfileSchema.validate(unknownBuildingProfile), "unknown building definition rejected")
+
+    local sparseAssignmentProfile = ProfileSchema.createDefault(100)
+    sparseAssignmentProfile.buildings.building_instance_1 = {
+        id = "building_instance_1",
+        definitionId = "building_mine",
+        level = 1,
+        position = { x = 0, y = 0, z = 0 },
+        rotation = 0,
+        assignedCreatureIds = { [2] = "creature_instance_1" },
+        lastClaimedAt = 100,
+    }
+    expectFalse(ProfileSchema.validate(sparseAssignmentProfile), "sparse building assignments rejected")
+
     local migrated = assert(ProfileSchema.migrate(profile))
     expectTrue(migrated ~= profile, "migration returns independent profile")
     expectTrue(migrated.inventory ~= profile.inventory, "migration deep copies inventory")
