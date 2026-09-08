@@ -14,6 +14,13 @@ The repository currently contains:
 - six canonical resource IDs,
 - six initial creature species definitions,
 - eight initial building definitions,
+- versioned profile construction, validation, and migration,
+- validated inventory and currency mutation domains,
+- atomic canonical building-cost transactions,
+- generated-ID creature ownership,
+- one-time starter Rockhorn grants,
+- eligibility-gated creature capture ownership,
+- creature-to-building work-assignment eligibility validation,
 - pure production and build-grid math,
 - semantic network action names,
 - server/client bootstraps,
@@ -21,7 +28,7 @@ The repository currently contains:
 - Jest Roblox test specs for in-engine expansion,
 - formatting, linting, test, and Rojo-build CI.
 
-Persistence, creature capture, building placement, inventory mutation, production claiming, and the playable world are subsequent implementation phases.
+Persistence, final building placement and worker-assignment mutation, production claiming, exploration encounters, UI, tutorial flow, and the playable world are subsequent implementation phases.
 
 ## Toolchain
 
@@ -92,6 +99,6 @@ The approved foundation design is:
 
 `docs/superpowers/specs/2026-09-08-creature-empire-foundation-design.md`
 
-The implementation plan is:
+Implementation plans live under:
 
-`docs/superpowers/plans/2026-09-08-foundation-scaffold.md`
+`docs/superpowers/plans/`
