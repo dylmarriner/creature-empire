@@ -77,6 +77,23 @@ local function validateExistingWorkers(profile: any, buildingInstanceId: string,
     return workerCount, nil
 end
 
+local function existingWorkersSupportWork(profile: any, workerIds: any, workerCount: number, workType: string)
+    for index = 1, workerCount do
+        local worker = profile.creatures[workerIds[index]]
+        local workerDefinition = CreatureDefinitions.ById[worker.speciesId]
+        if type(workerDefinition.workAffinity) ~= "table" then
+            return false
+        end
+
+        local affinity = workerDefinition.workAffinity[workType]
+        if not isFiniteNumber(affinity) or affinity <= 0 then
+            return false
+        end
+    end
+
+    return true
+end
+
 local function validate(profile: any, creatureInstanceId: any, buildingInstanceId: any)
     if
         type(profile) ~= "table"
@@ -146,6 +163,17 @@ local function validate(profile: any, creatureInstanceId: any, buildingInstanceI
     local workType = buildingDefinition.workType
     if type(workType) ~= "string" or workType == "" then
         return err("incompatible_work", "building does not accept creature workers")
+    end
+
+    if
+        not existingWorkersSupportWork(
+            profile,
+            building.assignedCreatureIds,
+            workerCount,
+            workType
+        )
+    then
+        return err("invalid_request", "building contains a worker incompatible with its work type")
     end
 
     local maxWorkers = buildingDefinition.maxWorkers
