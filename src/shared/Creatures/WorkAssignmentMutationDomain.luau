@@ -57,7 +57,8 @@ local function assign(profile: any, creatureInstanceId: any, buildingInstanceId:
         return err("invalid_request", "assignment timestamp is invalid")
     end
 
-    local eligibility = WorkAssignmentDomain.validate(profile, creatureInstanceId, buildingInstanceId)
+    local eligibility =
+        WorkAssignmentDomain.validate(profile, creatureInstanceId, buildingInstanceId)
     if eligibility.ok ~= true then
         return eligibility
     end
