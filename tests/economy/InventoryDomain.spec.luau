@@ -30,10 +30,26 @@ local function run()
     expectOkValue(InventoryDomain.remove(profile, "item_wood", 4), 6, "remove wood")
     expectEqual(profile.inventory.item_wood, 6, "remove mutates inventory")
 
-    expectErrorCode(InventoryDomain.add(profile, "item_unknown", 1), "invalid_request", "unknown item rejected")
-    expectErrorCode(InventoryDomain.add(profile, "item_wood", 0), "invalid_request", "zero add rejected")
-    expectErrorCode(InventoryDomain.add(profile, "item_wood", -1), "invalid_request", "negative add rejected")
-    expectErrorCode(InventoryDomain.add(profile, "item_wood", 1.5), "invalid_request", "fractional add rejected")
+    expectErrorCode(
+        InventoryDomain.add(profile, "item_unknown", 1),
+        "invalid_request",
+        "unknown item rejected"
+    )
+    expectErrorCode(
+        InventoryDomain.add(profile, "item_wood", 0),
+        "invalid_request",
+        "zero add rejected"
+    )
+    expectErrorCode(
+        InventoryDomain.add(profile, "item_wood", -1),
+        "invalid_request",
+        "negative add rejected"
+    )
+    expectErrorCode(
+        InventoryDomain.add(profile, "item_wood", 1.5),
+        "invalid_request",
+        "fractional add rejected"
+    )
     expectEqual(profile.inventory.item_wood, 6, "invalid add leaves balance")
 
     expectErrorCode(
@@ -48,8 +64,16 @@ local function run()
 
     profile.inventory.item_wood = 20
     profile.inventory.item_stone = 5
-    expectEqual(InventoryDomain.canAfford(profile, { item_wood = 10, item_stone = 5 }), true, "affordable cost")
-    expectEqual(InventoryDomain.canAfford(profile, { item_wood = 10, item_stone = 10 }), false, "unaffordable cost")
+    expectEqual(
+        InventoryDomain.canAfford(profile, { item_wood = 10, item_stone = 5 }),
+        true,
+        "affordable cost"
+    )
+    expectEqual(
+        InventoryDomain.canAfford(profile, { item_wood = 10, item_stone = 10 }),
+        false,
+        "unaffordable cost"
+    )
 
     local failedCost = InventoryDomain.applyCost(profile, { item_wood = 10, item_stone = 10 })
     expectErrorCode(failedCost, "insufficient_resources", "multi-item cost rejected")
