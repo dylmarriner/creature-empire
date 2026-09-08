@@ -1,0 +1,71 @@
+# Data Model
+
+## Stable identity
+
+Persisted content uses stable string IDs. Display text is presentation and can change without migrations.
+
+Examples:
+
+- `creature_rockhorn`
+- `building_mine`
+- `item_copper_ore`
+
+Player-owned creature and building instances receive generated unique IDs.
+
+## Profile schema version 1
+
+```luau
+export type PlayerProfile = {
+    schemaVersion: number,
+    currencies: {
+        coins: number,
+        gems: number,
+    },
+    inventory: { [string]: number },
+    creatures: { [string]: CreatureInstance },
+    buildings: { [string]: BuildingInstance },
+    unlocks: { [string]: boolean },
+    lastSeenAt: number,
+}
+```
+
+`schemaVersion` begins at 1. Migrations must be explicit and tested before any persisted shape changes.
+
+## Creature instance
+
+```luau
+export type CreatureInstance = {
+    id: string,
+    speciesId: string,
+    level: number,
+    experience: number,
+    traits: { string },
+    mutationId: string?,
+    assignedBuildingId: string?,
+}
+```
+
+## Building instance
+
+```luau
+export type BuildingInstance = {
+    id: string,
+    definitionId: string,
+    level: number,
+    position: { x: number, y: number, z: number },
+    rotation: number,
+    assignedCreatureIds: { string },
+    lastClaimedAt: number,
+}
+```
+
+## Persistence constraints
+
+- Save structured data, never Roblox Instance references.
+- Never silently replace a known-good profile with defaults after a load failure.
+- Validate finite numeric values and non-negative balances.
+- Persist server time for production claims; do not trust client clocks.
+- Session ownership must prevent two servers from concurrently mutating the same profile.
+- Schema migrations must be deterministic and idempotent.
+
+The persistence service itself is not implemented in the foundation scaffold.

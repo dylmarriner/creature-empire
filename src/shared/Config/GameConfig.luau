@@ -1,0 +1,10 @@
+local GameConfig = {
+    SCHEMA_VERSION = 1,
+    OFFLINE_PRODUCTION_CAP_SECONDS = 8 * 60 * 60,
+    BUILD_GRID_SIZE = 4,
+    INITIAL_RESOURCE_COUNT = 6,
+    INITIAL_CREATURE_COUNT = 6,
+    INITIAL_BUILDING_COUNT = 8,
+}
+
+return table.freeze(GameConfig)

@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rokit
+        uses: CompeyDev/setup-rokit@v0.1.2
+        with:
+          version: v1.2.0
+
+      - name: Install pinned tools
+        run: rokit install
+
+      - name: Install Wally dependencies
+        run: wally install
+
+      - name: Check formatting
+        run: stylua --check src tests
+
+      - name: Lint Luau
+        run: selene src tests
+
+      - name: Run pure-domain tests
+        run: lune run tests/run
+
+      - name: Build Roblox place
+        run: rojo build default.project.json --output CreatureEmpire.rbxlx
