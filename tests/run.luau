@@ -9,6 +9,7 @@ local runProductionDomainSpec = require("./economy/ProductionDomain.spec")
 local runBuildingPlacementDomainSpec = require("./buildings/BuildingPlacementDomain.spec")
 local runCreatureOwnershipDomainSpec = require("./creatures/CreatureOwnershipDomain.spec")
 local runWorkAssignmentDomainSpec = require("./creatures/WorkAssignmentDomain.spec")
+local runWorkAssignmentMutationDomainSpec = require("./creatures/WorkAssignmentMutationDomain.spec")
 
 local function expectEqual(actual: any, expected: any, label: string)
     if actual ~= expected then
@@ -35,5 +36,6 @@ runProductionDomainSpec()
 runBuildingPlacementDomainSpec()
 runCreatureOwnershipDomainSpec()
 runWorkAssignmentDomainSpec()
+runWorkAssignmentMutationDomainSpec()
 
 print("Creature Empire pure-domain tests passed")
