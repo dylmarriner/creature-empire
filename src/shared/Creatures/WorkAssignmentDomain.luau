@@ -77,7 +77,12 @@ local function validateExistingWorkers(profile: any, buildingInstanceId: string,
     return workerCount, nil
 end
 
-local function existingWorkersSupportWork(profile: any, workerIds: any, workerCount: number, workType: string)
+local function existingWorkersSupportWork(
+    profile: any,
+    workerIds: any,
+    workerCount: number,
+    workType: string
+)
     for index = 1, workerCount do
         local worker = profile.creatures[workerIds[index]]
         local workerDefinition = CreatureDefinitions.ById[worker.speciesId]
@@ -165,14 +170,7 @@ local function validate(profile: any, creatureInstanceId: any, buildingInstanceI
         return err("incompatible_work", "building does not accept creature workers")
     end
 
-    if
-        not existingWorkersSupportWork(
-            profile,
-            building.assignedCreatureIds,
-            workerCount,
-            workType
-        )
-    then
+    if not existingWorkersSupportWork(profile, building.assignedCreatureIds, workerCount, workType) then
         return err("invalid_request", "building contains a worker incompatible with its work type")
     end
 
