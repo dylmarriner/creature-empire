@@ -203,7 +203,12 @@ local function preview(profile: any, buildingInstanceId: any, now: any)
     })
 end
 
-local function applyPreview(profile: any, buildingInstanceId: string, now: number, allowZero: boolean)
+local function applyPreview(
+    profile: any,
+    buildingInstanceId: string,
+    now: number,
+    allowZero: boolean
+)
     local result = preview(profile, buildingInstanceId, now)
     if result.ok ~= true then
         return result
