@@ -150,7 +150,10 @@ local function validate(profile: any): (boolean, string?)
         return false, "currencies must be a table"
     end
 
-    if not isNonNegativeInteger(profile.currencies.coins) or not isNonNegativeInteger(profile.currencies.gems) then
+    if
+        not isNonNegativeInteger(profile.currencies.coins)
+        or not isNonNegativeInteger(profile.currencies.gems)
+    then
         return false, "currency balances must be finite non-negative integers"
     end
 
