@@ -6,8 +6,7 @@ Creature Empire is a Rojo-managed Roblox project. Git contains source; Rojo maps
 
 ```text
 ReplicatedStorage
-├── Shared      <- src/shared
-└── Packages    <- Wally Packages
+└── Shared      <- src/shared
 
 ServerScriptService
 └── Server      <- src/server
@@ -16,6 +15,8 @@ StarterPlayer
 └── StarterPlayerScripts
     └── Client  <- src/client
 ```
+
+Wally currently has development-only dependencies, so the production Rojo project deliberately does not map an empty `Packages` directory. When the game gains a real runtime package dependency, `Packages` will be mapped into `ReplicatedStorage` at that point. Jest Roblox remains a development dependency and is not shipped in the production place merely to make the repository tree look busier.
 
 ## Authority
 
