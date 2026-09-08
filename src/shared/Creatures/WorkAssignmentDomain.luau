@@ -170,7 +170,9 @@ local function validate(profile: any, creatureInstanceId: any, buildingInstanceI
         return err("incompatible_work", "building does not accept creature workers")
     end
 
-    if not existingWorkersSupportWork(profile, building.assignedCreatureIds, workerCount, workType) then
+    if
+        not existingWorkersSupportWork(profile, building.assignedCreatureIds, workerCount, workType)
+    then
         return err("invalid_request", "building contains a worker incompatible with its work type")
     end
 
