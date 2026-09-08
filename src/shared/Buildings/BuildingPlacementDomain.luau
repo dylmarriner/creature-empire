@@ -84,7 +84,10 @@ local function place(
     end
 
     if not validateExistingOrigins(profile.buildings, snapped) then
-        return err("invalid_placement", "building origin is occupied or existing placement state is invalid")
+        return err(
+            "invalid_placement",
+            "building origin is occupied or existing placement state is invalid"
+        )
     end
 
     local instanceId = generateId()
