@@ -48,12 +48,14 @@ local function run()
     )
     expectEqual(profile.unlocks.starter_creature_granted, true, "starter marker persisted")
 
-    local duplicateStarter = CreatureOwnershipDomain.grantStarter(
-        profile,
-        sequenceGenerator({ "unused_starter_id" })
-    )
+    local duplicateStarter =
+        CreatureOwnershipDomain.grantStarter(profile, sequenceGenerator({ "unused_starter_id" }))
     expectErrorCode(duplicateStarter, "starter_already_granted", "duplicate starter rejected")
-    expectEqual(profile.creatures.unused_starter_id, nil, "duplicate starter does not generate ownership")
+    expectEqual(
+        profile.creatures.unused_starter_id,
+        nil,
+        "duplicate starter does not generate ownership"
+    )
 
     local captured = CreatureOwnershipDomain.capture(
         profile,
@@ -90,7 +92,11 @@ local function run()
         sequenceGenerator({ "must_not_be_used" })
     )
     expectErrorCode(ineligible, "capture_not_eligible", "ineligible capture rejected")
-    expectEqual(profile.creatures.must_not_be_used, nil, "ineligible capture does not mutate ownership")
+    expectEqual(
+        profile.creatures.must_not_be_used,
+        nil,
+        "ineligible capture does not mutate ownership"
+    )
 
     local unknownSpecies = CreatureOwnershipDomain.capture(
         profile,
@@ -128,7 +134,11 @@ local function run()
         true,
         sequenceGenerator({ 42 })
     )
-    expectErrorCode(nonStringGeneratedId, "invalid_generated_id", "non-string generated id rejected")
+    expectErrorCode(
+        nonStringGeneratedId,
+        "invalid_generated_id",
+        "non-string generated id rejected"
+    )
 
     local invalidGenerator = CreatureOwnershipDomain.capture(profile, "creature_aquafin", true, nil)
     expectErrorCode(invalidGenerator, "invalid_request", "missing id generator rejected")
