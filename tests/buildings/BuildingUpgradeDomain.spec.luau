@@ -32,7 +32,13 @@ local function addRockhorn(profile: any, buildingId: string)
     }
 end
 
-local function addBuilding(profile: any, id: string, definitionId: string, level: number, workers: { string })
+local function addBuilding(
+    profile: any,
+    id: string,
+    definitionId: string,
+    level: number,
+    workers: { string }
+)
     profile.buildings[id] = {
         id = id,
         definitionId = definitionId,
