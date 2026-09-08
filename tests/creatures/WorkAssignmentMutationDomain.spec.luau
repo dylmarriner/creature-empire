@@ -1,5 +1,6 @@
 local ProfileSchema = require("../../src/shared/Profiles/ProfileSchema")
-local WorkAssignmentMutationDomain = require("../../src/shared/Creatures/WorkAssignmentMutationDomain")
+local WorkAssignmentMutationDomain =
+    require("../../src/shared/Creatures/WorkAssignmentMutationDomain")
 
 local function expectEqual(actual: any, expected: any, label: string)
     if actual ~= expected then
@@ -51,8 +52,16 @@ local function run()
 
     local assigned = WorkAssignmentMutationDomain.assign(profile, "rockhorn_1", "mine_1", 160)
     expectOk(assigned, "assign Rockhorn")
-    expectEqual(profile.creatures.rockhorn_1.assignedBuildingId, "mine_1", "creature back-reference")
-    expectEqual(profile.buildings.mine_1.assignedCreatureIds[1], "rockhorn_1", "building worker reference")
+    expectEqual(
+        profile.creatures.rockhorn_1.assignedBuildingId,
+        "mine_1",
+        "creature back-reference"
+    )
+    expectEqual(
+        profile.buildings.mine_1.assignedCreatureIds[1],
+        "rockhorn_1",
+        "building worker reference"
+    )
     expectEqual(profile.buildings.mine_1.lastClaimedAt, 160, "assignment settles old baseline")
 
     local invalidProfile = ProfileSchema.createDefault(100)
@@ -60,9 +69,21 @@ local function run()
     addMine(invalidProfile, {}, 100)
     local invalid = WorkAssignmentMutationDomain.assign(invalidProfile, "ember_1", "mine_1", 160)
     expectErrorCode(invalid, "incompatible_work", "incompatible assignment rejected")
-    expectEqual(invalidProfile.creatures.ember_1.assignedBuildingId, nil, "failed assignment creature unchanged")
-    expectEqual(#invalidProfile.buildings.mine_1.assignedCreatureIds, 0, "failed assignment building unchanged")
-    expectEqual(invalidProfile.buildings.mine_1.lastClaimedAt, 100, "failed assignment timestamp unchanged")
+    expectEqual(
+        invalidProfile.creatures.ember_1.assignedBuildingId,
+        nil,
+        "failed assignment creature unchanged"
+    )
+    expectEqual(
+        #invalidProfile.buildings.mine_1.assignedCreatureIds,
+        0,
+        "failed assignment building unchanged"
+    )
+    expectEqual(
+        invalidProfile.buildings.mine_1.lastClaimedAt,
+        100,
+        "failed assignment timestamp unchanged"
+    )
 
     local producingProfile = ProfileSchema.createDefault(100)
     addCreature(producingProfile, "rockhorn_1", "creature_rockhorn", nil)
@@ -73,9 +94,21 @@ local function run()
     )
     local unassigned = WorkAssignmentMutationDomain.unassign(producingProfile, "rockhorn_1", 220)
     expectOk(unassigned, "unassign Rockhorn")
-    expectEqual(producingProfile.inventory.item_copper_ore, 15, "unassign settles old worker output")
-    expectEqual(producingProfile.creatures.rockhorn_1.assignedBuildingId, nil, "unassign creature cleared")
-    expectEqual(#producingProfile.buildings.mine_1.assignedCreatureIds, 0, "unassign building cleared")
+    expectEqual(
+        producingProfile.inventory.item_copper_ore,
+        15,
+        "unassign settles old worker output"
+    )
+    expectEqual(
+        producingProfile.creatures.rockhorn_1.assignedBuildingId,
+        nil,
+        "unassign creature cleared"
+    )
+    expectEqual(
+        #producingProfile.buildings.mine_1.assignedCreatureIds,
+        0,
+        "unassign building cleared"
+    )
     expectEqual(producingProfile.buildings.mine_1.lastClaimedAt, 220, "unassign timestamp advanced")
 
     local corruptProfile = ProfileSchema.createDefault(100)
@@ -83,7 +116,11 @@ local function run()
     addMine(corruptProfile, {}, 100)
     local corrupt = WorkAssignmentMutationDomain.unassign(corruptProfile, "rockhorn_1", 220)
     expectErrorCode(corrupt, "invalid_request", "one-sided unassign rejected")
-    expectEqual(corruptProfile.creatures.rockhorn_1.assignedBuildingId, "mine_1", "corrupt creature unchanged")
+    expectEqual(
+        corruptProfile.creatures.rockhorn_1.assignedBuildingId,
+        "mine_1",
+        "corrupt creature unchanged"
+    )
     expectEqual(corruptProfile.buildings.mine_1.lastClaimedAt, 100, "corrupt timestamp unchanged")
 
     local badTimeProfile = ProfileSchema.createDefault(100)
