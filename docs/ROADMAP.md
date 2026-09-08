@@ -25,13 +25,13 @@ Exit criteria are satisfied when resource transactions cannot create negative ba
 
 ## Phase 3: Creature ownership
 
-**Status: Implemented; final branch verification pending**
+**Status: Complete**
 
 Implemented owned creature instances, generated IDs, one-time starter Rockhorn grant, capture ownership handling, capture eligibility gating, and work-assignment eligibility validation.
 
 Phase 3 deliberately validates assignment without mutating the creature/building relationship. The two-sided worker assignment mutation remains part of Phase 4.
 
-Exit criteria are satisfied when a server-owned profile can gain a Rockhorn and reject invalid or duplicate ownership mutations.
+Exit criteria are satisfied: a server-owned profile can gain a Rockhorn and invalid or duplicate ownership mutations are rejected with explicit domain results.
 
 ## Phase 4: Building and production loop
 
