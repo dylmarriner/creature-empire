@@ -52,7 +52,11 @@ local function run()
         { item_unknown = 10 }
     )
     expectErrorCode(unknownAddition, "invalid_request", "unknown addition rejected")
-    expectEqual(unknownAdditionProfile.inventory.item_copper_ore, 20, "unknown addition removal unchanged")
+    expectEqual(
+        unknownAdditionProfile.inventory.item_copper_ore,
+        20,
+        "unknown addition removal unchanged"
+    )
     expectEqual(unknownAdditionProfile.inventory.item_unknown, nil, "unknown addition not written")
 
     local invalidBalanceProfile = ProfileSchema.createDefault(100)
@@ -64,8 +68,16 @@ local function run()
         { item_copper_bar = 10 }
     )
     expectErrorCode(invalidBalance, "invalid_request", "invalid output balance rejected")
-    expectEqual(invalidBalanceProfile.inventory.item_copper_ore, 20, "invalid output removal unchanged")
-    expectEqual(invalidBalanceProfile.inventory.item_copper_bar, -1, "invalid output balance unchanged")
+    expectEqual(
+        invalidBalanceProfile.inventory.item_copper_ore,
+        20,
+        "invalid output removal unchanged"
+    )
+    expectEqual(
+        invalidBalanceProfile.inventory.item_copper_bar,
+        -1,
+        "invalid output balance unchanged"
+    )
 
     local sameItemProfile = ProfileSchema.createDefault(100)
     sameItemProfile.inventory.item_copper_ore = 20
