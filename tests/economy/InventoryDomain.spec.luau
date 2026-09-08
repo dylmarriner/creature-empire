@@ -65,7 +65,11 @@ local function run()
         "invalid_request",
         "remove rejects malformed existing balance"
     )
-    expectEqual(corruptedProfile.inventory.item_wood, -5, "failed remove preserves malformed balance")
+    expectEqual(
+        corruptedProfile.inventory.item_wood,
+        -5,
+        "failed remove preserves malformed balance"
+    )
 
     expectErrorCode(
         InventoryDomain.remove(profile, "item_wood", 7),
@@ -102,7 +106,11 @@ local function run()
         "invalid_request",
         "cost rejects malformed existing balance"
     )
-    expectEqual(malformedCostProfile.inventory.item_wood, 10.5, "failed cost preserves malformed balance")
+    expectEqual(
+        malformedCostProfile.inventory.item_wood,
+        10.5,
+        "failed cost preserves malformed balance"
+    )
 
     local failedCost = InventoryDomain.applyCost(profile, { item_wood = 10, item_stone = 10 })
     expectErrorCode(failedCost, "insufficient_resources", "multi-item cost rejected")
