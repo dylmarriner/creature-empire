@@ -26,14 +26,22 @@ local function run()
     profile.inventory.item_wood = 20
     profile.inventory.item_stone = 30
 
-    expectOkValue(BuildingCostDomain.canAfford(profile, "building_mine"), true, "mine is affordable")
+    expectOkValue(
+        BuildingCostDomain.canAfford(profile, "building_mine"),
+        true,
+        "mine is affordable"
+    )
     expectOkValue(BuildingCostDomain.purchase(profile, "building_mine"), true, "purchase mine")
     expectEqual(profile.inventory.item_wood, nil, "mine consumes exactly 20 wood")
     expectEqual(profile.inventory.item_stone, nil, "mine consumes exactly 30 stone")
 
     profile.inventory.item_wood = 20
     profile.inventory.item_stone = 29
-    expectOkValue(BuildingCostDomain.canAfford(profile, "building_mine"), false, "mine is unaffordable")
+    expectOkValue(
+        BuildingCostDomain.canAfford(profile, "building_mine"),
+        false,
+        "mine is unaffordable"
+    )
 
     local failedPurchase = BuildingCostDomain.purchase(profile, "building_mine")
     expectErrorCode(failedPurchase, "insufficient_resources", "unaffordable mine rejected")
