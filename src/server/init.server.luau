@@ -8,9 +8,18 @@ local BuildingDefinitions = require(Shared.Buildings.BuildingDefinitions)
 local ProductionMath = require(Shared.Economy.ProductionMath)
 local ActionNames = require(Shared.Net.ActionNames)
 
-assert(#ItemDefinitions.Ids == GameConfig.INITIAL_RESOURCE_COUNT, "resource definition count mismatch")
-assert(#CreatureDefinitions.Ids == GameConfig.INITIAL_CREATURE_COUNT, "creature definition count mismatch")
-assert(#BuildingDefinitions.Ids == GameConfig.INITIAL_BUILDING_COUNT, "building definition count mismatch")
+assert(
+    #ItemDefinitions.Ids == GameConfig.INITIAL_RESOURCE_COUNT,
+    "resource definition count mismatch"
+)
+assert(
+    #CreatureDefinitions.Ids == GameConfig.INITIAL_CREATURE_COUNT,
+    "creature definition count mismatch"
+)
+assert(
+    #BuildingDefinitions.Ids == GameConfig.INITIAL_BUILDING_COUNT,
+    "building definition count mismatch"
+)
 assert(
     ProductionMath.DEFAULT_OFFLINE_CAP_SECONDS == GameConfig.OFFLINE_PRODUCTION_CAP_SECONDS,
     "offline production cap mismatch"

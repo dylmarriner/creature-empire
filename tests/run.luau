@@ -8,11 +8,7 @@ local function expectEqual(actual: any, expected: any, label: string)
 end
 
 expectEqual(ProductionMath.calculateOutput(10, 1, 1, 1, 120), 20, "base production")
-expectEqual(
-    ProductionMath.clampElapsedSeconds(12 * 60 * 60),
-    8 * 60 * 60,
-    "offline production cap"
-)
+expectEqual(ProductionMath.clampElapsedSeconds(12 * 60 * 60), 8 * 60 * 60, "offline production cap")
 expectEqual(GridMath.snapCoordinate(5.9, 4), 4, "positive grid snap")
 expectEqual(GridMath.snapCoordinate(-5.9, 4), -4, "negative grid snap")
 
