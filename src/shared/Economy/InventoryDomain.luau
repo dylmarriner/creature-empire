@@ -8,13 +8,20 @@ local function err(code: string, message: string)
     return { ok = false, code = code, message = message }
 end
 
-local function isPositiveInteger(value: any): boolean
+local function isFiniteInteger(value: any): boolean
     return type(value) == "number"
         and value == value
         and value ~= math.huge
         and value ~= -math.huge
-        and value > 0
         and value % 1 == 0
+end
+
+local function isPositiveInteger(value: any): boolean
+    return isFiniteInteger(value) and value > 0
+end
+
+local function isNonNegativeInteger(value: any): boolean
+    return isFiniteInteger(value) and value >= 0
 end
 
 local function isKnownItem(itemId: any): boolean
@@ -35,6 +42,19 @@ local function validateCost(cost: any): boolean
     return true
 end
 
+local function getBalance(inventory: any, itemId: string): (number?, boolean)
+    local balance = inventory[itemId]
+    if balance == nil then
+        return 0, true
+    end
+
+    if not isNonNegativeInteger(balance) then
+        return nil, false
+    end
+
+    return balance, true
+end
+
 local function add(profile: any, itemId: string, quantity: number)
     if type(profile) ~= "table" or type(profile.inventory) ~= "table" then
         return err("invalid_request", "profile inventory is invalid")
@@ -44,7 +64,11 @@ local function add(profile: any, itemId: string, quantity: number)
         return err("invalid_request", "item id and quantity must be valid")
     end
 
-    local current = profile.inventory[itemId] or 0
+    local current, validBalance = getBalance(profile.inventory, itemId)
+    if not validBalance then
+        return err("invalid_request", "existing inventory balance is invalid")
+    end
+
     local nextBalance = current + quantity
     if not isPositiveInteger(nextBalance) then
         return err("invalid_request", "resulting inventory balance is invalid")
@@ -63,7 +87,11 @@ local function remove(profile: any, itemId: string, quantity: number)
         return err("invalid_request", "item id and quantity must be valid")
     end
 
-    local current = profile.inventory[itemId] or 0
+    local current, validBalance = getBalance(profile.inventory, itemId)
+    if not validBalance then
+        return err("invalid_request", "existing inventory balance is invalid")
+    end
+
     if current < quantity then
         return err("insufficient_resources", "insufficient item balance")
     end
@@ -84,7 +112,8 @@ local function canAfford(profile: any, cost: any): boolean
     end
 
     for itemId, quantity in pairs(cost) do
-        if (profile.inventory[itemId] or 0) < quantity then
+        local current, validBalance = getBalance(profile.inventory, itemId)
+        if not validBalance or current < quantity then
             return false
         end
     end
@@ -97,12 +126,19 @@ local function applyCost(profile: any, cost: any)
         return err("invalid_request", "cost is invalid")
     end
 
-    if not canAfford(profile, cost) then
-        return err("insufficient_resources", "insufficient resources for cost")
+    for itemId, quantity in pairs(cost) do
+        local current, validBalance = getBalance(profile.inventory, itemId)
+        if not validBalance then
+            return err("invalid_request", "existing inventory balance is invalid")
+        end
+        if current < quantity then
+            return err("insufficient_resources", "insufficient resources for cost")
+        end
     end
 
     for itemId, quantity in pairs(cost) do
-        local nextBalance = profile.inventory[itemId] - quantity
+        local current = profile.inventory[itemId]
+        local nextBalance = current - quantity
         if nextBalance == 0 then
             profile.inventory[itemId] = nil
         else
