@@ -2,6 +2,8 @@
 
 ## Phase 1: Repository foundation
 
+**Status: Complete**
+
 Exit criteria:
 
 - pinned toolchain installs,
@@ -15,15 +17,21 @@ Exit criteria:
 
 ## Phase 2: Economy primitives
 
-Implement inventory balances, currency balances, cost validation, atomic resource removal/addition, starter profile construction, profile schema validation, and migration tests.
+**Status: Complete**
 
-Exit when resource transactions cannot create negative balances and all mutation APIs return explicit domain results.
+Implemented inventory balances, currency balances, cost validation, atomic resource removal/addition, starter profile construction, profile schema validation, and migration tests.
+
+Exit criteria are satisfied when resource transactions cannot create negative balances and all mutation APIs return explicit domain results.
 
 ## Phase 3: Creature ownership
 
-Implement owned creature instances, generated IDs, starter creature grant, capture eligibility, capture result handling, and work-assignment validation.
+**Status: Implemented; final branch verification pending**
 
-Exit when a server-owned profile can gain a Rockhorn and reject invalid or duplicate ownership mutations.
+Implemented owned creature instances, generated IDs, one-time starter Rockhorn grant, capture ownership handling, capture eligibility gating, and work-assignment eligibility validation.
+
+Phase 3 deliberately validates assignment without mutating the creature/building relationship. The two-sided worker assignment mutation remains part of Phase 4.
+
+Exit criteria are satisfied when a server-owned profile can gain a Rockhorn and reject invalid or duplicate ownership mutations.
 
 ## Phase 4: Building and production loop
 
