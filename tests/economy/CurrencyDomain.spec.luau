@@ -37,10 +37,26 @@ local function run()
     expectErrorCode(overspend, "insufficient_currency", "overspend rejected")
     expectEqual(profile.currencies.coins, 30, "overspend leaves coins")
 
-    expectErrorCode(CurrencyDomain.add(profile, "credits", 1), "unknown_currency", "unknown currency rejected")
-    expectErrorCode(CurrencyDomain.add(profile, "coins", 0), "invalid_request", "zero earn rejected")
-    expectErrorCode(CurrencyDomain.add(profile, "coins", -1), "invalid_request", "negative earn rejected")
-    expectErrorCode(CurrencyDomain.spend(profile, "coins", 1.5), "invalid_request", "fractional spend rejected")
+    expectErrorCode(
+        CurrencyDomain.add(profile, "credits", 1),
+        "unknown_currency",
+        "unknown currency rejected"
+    )
+    expectErrorCode(
+        CurrencyDomain.add(profile, "coins", 0),
+        "invalid_request",
+        "zero earn rejected"
+    )
+    expectErrorCode(
+        CurrencyDomain.add(profile, "coins", -1),
+        "invalid_request",
+        "negative earn rejected"
+    )
+    expectErrorCode(
+        CurrencyDomain.spend(profile, "coins", 1.5),
+        "invalid_request",
+        "fractional spend rejected"
+    )
     expectEqual(profile.currencies.coins, 30, "invalid requests leave coins")
 end
 
