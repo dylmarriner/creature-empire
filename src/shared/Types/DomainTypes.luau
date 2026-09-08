@@ -39,6 +39,8 @@ export type PlayerProfile = {
 
 export type DomainErrorCode =
     "insufficient_resources"
+    | "insufficient_currency"
+    | "unknown_currency"
     | "creature_already_assigned"
     | "building_capacity_full"
     | "invalid_placement"
