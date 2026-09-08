@@ -152,6 +152,26 @@ local function run()
     )
     expectErrorCode(mismatchedWorker, "invalid_request", "mismatched worker reference rejected")
 
+    local incompatibleWorkerProfile = createValidMiningProfile()
+    addCreature(
+        incompatibleWorkerProfile,
+        "creature_worker_1",
+        "creature_embercub",
+        "building_instance_1"
+    )
+    incompatibleWorkerProfile.buildings.building_instance_1.assignedCreatureIds =
+        { "creature_worker_1" }
+    local incompatibleWorker = WorkAssignmentDomain.validate(
+        incompatibleWorkerProfile,
+        "creature_instance_1",
+        "building_instance_1"
+    )
+    expectErrorCode(
+        incompatibleWorker,
+        "invalid_request",
+        "incompatible existing worker state rejected"
+    )
+
     local sparseProfile = createValidMiningProfile()
     sparseProfile.buildings.building_instance_1.assignedCreatureIds = {
         [2] = "creature_worker_1",
