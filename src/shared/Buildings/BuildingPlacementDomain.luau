@@ -67,11 +67,14 @@ local function place(
         or type(definitionId) ~= "string"
         or BuildingDefinitions.ById[definitionId] == nil
         or not isPosition(desiredPosition)
-        or not isRotation(rotation)
         or type(generateId) ~= "function"
         or not isNonNegativeInteger(now)
     then
         return err("invalid_request", "building placement request is invalid")
+    end
+
+    if not isRotation(rotation) then
+        return err("invalid_placement", "building rotation is invalid")
     end
 
     local snapped = GridMath.snapPosition(desiredPosition, GameConfig.BUILD_GRID_SIZE)
