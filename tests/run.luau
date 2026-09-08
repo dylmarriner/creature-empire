@@ -1,6 +1,7 @@
 local ProductionMath = require("../src/shared/Economy/ProductionMath")
 local GridMath = require("../src/shared/Buildings/GridMath")
 local runProfileSchemaSpec = require("./economy/ProfileSchema.spec")
+local runInventoryDomainSpec = require("./economy/InventoryDomain.spec")
 
 local function expectEqual(actual: any, expected: any, label: string)
     if actual ~= expected then
@@ -19,5 +20,6 @@ expectEqual(snapped.y, 0, "position y")
 expectEqual(snapped.z, -8, "position z")
 
 runProfileSchemaSpec()
+runInventoryDomainSpec()
 
 print("Creature Empire pure-domain tests passed")
