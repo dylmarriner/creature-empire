@@ -10,10 +10,7 @@ local function err(code: string, message: string)
 end
 
 local function isFiniteNumber(value: any): boolean
-    return type(value) == "number"
-        and value == value
-        and value ~= math.huge
-        and value ~= -math.huge
+    return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
 end
 
 local function isNonNegativeInteger(value: any): boolean
