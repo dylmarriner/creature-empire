@@ -1,4 +1,6 @@
 local ItemDefinitions = require("../Items/ItemDefinitions")
+local CreatureDefinitions = require("../Creatures/CreatureDefinitions")
+local BuildingDefinitions = require("../Buildings/BuildingDefinitions")
 
 local CURRENT_VERSION = 1
 
@@ -19,8 +21,21 @@ local function isStringArray(value: any): boolean
         return false
     end
 
-    for index, item in ipairs(value) do
-        if type(index) ~= "number" or type(item) ~= "string" then
+    local count = 0
+    for index, item in pairs(value) do
+        if
+            type(index) ~= "number"
+            or not isFiniteInteger(index)
+            or index < 1
+            or type(item) ~= "string"
+        then
+            return false
+        end
+        count += 1
+    end
+
+    for index = 1, count do
+        if type(value[index]) ~= "string" then
             return false
         end
     end
@@ -37,7 +52,10 @@ local function validateCreature(creature: any): boolean
         return false
     end
 
-    if type(creature.speciesId) ~= "string" or creature.speciesId == "" then
+    if
+        type(creature.speciesId) ~= "string"
+        or CreatureDefinitions.ById[creature.speciesId] == nil
+    then
         return false
     end
 
@@ -80,7 +98,10 @@ local function validateBuilding(building: any): boolean
         return false
     end
 
-    if type(building.definitionId) ~= "string" or building.definitionId == "" then
+    if
+        type(building.definitionId) ~= "string"
+        or BuildingDefinitions.ById[building.definitionId] == nil
+    then
         return false
     end
 
