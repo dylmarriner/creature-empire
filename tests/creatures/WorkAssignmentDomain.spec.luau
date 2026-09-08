@@ -58,31 +58,23 @@ end
 
 local function run()
     local profile = createValidMiningProfile()
-    local valid = WorkAssignmentDomain.validate(profile, "creature_instance_1", "building_instance_1")
+    local valid =
+        WorkAssignmentDomain.validate(profile, "creature_instance_1", "building_instance_1")
     expectOk(valid, "Rockhorn can work Mine")
     expectEqual(valid.value, true, "valid assignment result")
 
-    local missingCreature = WorkAssignmentDomain.validate(
-        profile,
-        "creature_instance_missing",
-        "building_instance_1"
-    )
+    local missingCreature =
+        WorkAssignmentDomain.validate(profile, "creature_instance_missing", "building_instance_1")
     expectErrorCode(missingCreature, "creature_not_owned", "missing creature rejected")
 
-    local missingBuilding = WorkAssignmentDomain.validate(
-        profile,
-        "creature_instance_1",
-        "building_instance_missing"
-    )
+    local missingBuilding =
+        WorkAssignmentDomain.validate(profile, "creature_instance_1", "building_instance_missing")
     expectErrorCode(missingBuilding, "building_not_owned", "missing building rejected")
 
     local assignedProfile = createValidMiningProfile()
     assignedProfile.creatures.creature_instance_1.assignedBuildingId = "building_elsewhere"
-    local alreadyAssigned = WorkAssignmentDomain.validate(
-        assignedProfile,
-        "creature_instance_1",
-        "building_instance_1"
-    )
+    local alreadyAssigned =
+        WorkAssignmentDomain.validate(assignedProfile, "creature_instance_1", "building_instance_1")
     expectErrorCode(alreadyAssigned, "creature_already_assigned", "assigned creature rejected")
 
     local fullProfile = createValidMiningProfile()
@@ -92,11 +84,8 @@ local function run()
         "creature_worker_1",
         "creature_worker_2",
     }
-    local fullBuilding = WorkAssignmentDomain.validate(
-        fullProfile,
-        "creature_instance_1",
-        "building_instance_1"
-    )
+    local fullBuilding =
+        WorkAssignmentDomain.validate(fullProfile, "creature_instance_1", "building_instance_1")
     expectErrorCode(fullBuilding, "building_capacity_full", "full building rejected")
 
     local incompatibleProfile = ProfileSchema.createDefault(100)
@@ -111,11 +100,8 @@ local function run()
 
     local utilityProfile = createValidMiningProfile()
     utilityProfile.buildings.building_instance_1.definitionId = "building_warehouse"
-    local utility = WorkAssignmentDomain.validate(
-        utilityProfile,
-        "creature_instance_1",
-        "building_instance_1"
-    )
+    local utility =
+        WorkAssignmentDomain.validate(utilityProfile, "creature_instance_1", "building_instance_1")
     expectErrorCode(utility, "incompatible_work", "utility building rejected")
 
     local unknownSpeciesProfile = createValidMiningProfile()
@@ -137,7 +123,8 @@ local function run()
     expectErrorCode(unknownBuilding, "invalid_request", "unknown owned building rejected")
 
     local inconsistentProfile = createValidMiningProfile()
-    inconsistentProfile.buildings.building_instance_1.assignedCreatureIds = { "creature_instance_1" }
+    inconsistentProfile.buildings.building_instance_1.assignedCreatureIds =
+        { "creature_instance_1" }
     local inconsistent = WorkAssignmentDomain.validate(
         inconsistentProfile,
         "creature_instance_1",
@@ -156,7 +143,8 @@ local function run()
 
     local mismatchedWorkerProfile = createValidMiningProfile()
     addCreature(mismatchedWorkerProfile, "creature_worker_1", "creature_rockhorn", "building_other")
-    mismatchedWorkerProfile.buildings.building_instance_1.assignedCreatureIds = { "creature_worker_1" }
+    mismatchedWorkerProfile.buildings.building_instance_1.assignedCreatureIds =
+        { "creature_worker_1" }
     local mismatchedWorker = WorkAssignmentDomain.validate(
         mismatchedWorkerProfile,
         "creature_instance_1",
@@ -168,11 +156,8 @@ local function run()
     sparseProfile.buildings.building_instance_1.assignedCreatureIds = {
         [2] = "creature_worker_1",
     }
-    local sparse = WorkAssignmentDomain.validate(
-        sparseProfile,
-        "creature_instance_1",
-        "building_instance_1"
-    )
+    local sparse =
+        WorkAssignmentDomain.validate(sparseProfile, "creature_instance_1", "building_instance_1")
     expectErrorCode(sparse, "invalid_request", "sparse worker list rejected")
 
     local malformedProfile = ProfileSchema.createDefault(100)
