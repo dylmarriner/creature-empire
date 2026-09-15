@@ -55,7 +55,7 @@ An ineligible capture cannot mutate ownership. Unknown species, invalid generate
 
 ## Assignment eligibility
 
-`WorkAssignmentDomain.validate` determines whether an owned creature may be assigned to an owned building without performing the assignment itself.
+`WorkAssignmentDomain.validate` determines whether an owned creature may be assigned to an owned building.
 
 Eligibility requires:
 
@@ -70,8 +70,35 @@ Eligibility requires:
 
 Worker capacity and work compatibility always come from `BuildingDefinitions` and `CreatureDefinitions`; owned records cannot override those rules.
 
-Phase 3 performs eligibility validation only. The two-sided mutation that writes `creature.assignedBuildingId` and `building.assignedCreatureIds` together belongs to the Phase 4 building and production loop.
+## Assignment mutation
 
-## Future systems
+Phase 4 adds `WorkAssignmentMutationDomain` to perform the actual two-sided relationship mutation.
 
-Breeding, inherited genetics, mutations, combat builds, trading value, and creature marketplace behaviour are later specifications. They must extend the ownership model without changing stable species identity.
+For assignment, the domain:
+
+1. validates the authoritative timestamp,
+2. runs the normal eligibility rules,
+3. settles production using the building's old worker state,
+4. appends the creature instance ID to `building.assignedCreatureIds`,
+5. writes `creature.assignedBuildingId`.
+
+For unassignment, it first proves the exact relationship exists on both sides and that the creature appears exactly once in the building worker list. It then settles old-worker production before removing both references.
+
+This ordering prevents new or removed workers from retroactively changing production for time that elapsed before the assignment change. A failed eligibility or corrupt-relationship check leaves assignment state and the production timestamp unchanged.
+
+## Work affinities and production
+
+Production uses the canonical affinity for the building's work type. Affinities from all valid assigned workers are summed before elapsed-time output is calculated.
+
+Examples in the current Phase 4 chain:
+
+- Rockhorn has mining affinity `1.25` and drives Mine Copper Ore production.
+- Embercub has smelting affinity `1.25` and drives Furnace Copper Bar processing.
+
+A creature with no positive affinity for the target work type cannot be assigned to that building. Clients do not provide affinity values or production multipliers.
+
+## Current boundary
+
+Creature ownership, capture ownership mutation, work eligibility, and atomic assignment/unassignment are implemented as pure server-domain logic.
+
+Physical creature navigation, work animations, encounter simulation, combat, breeding, inherited genetics, mutations, trading value, and creature marketplace behaviour are later systems. They must extend the ownership model without changing stable species identity or weakening server authority.
