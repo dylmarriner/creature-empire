@@ -29,15 +29,35 @@ Exit criteria are satisfied when resource transactions cannot create negative ba
 
 Implemented owned creature instances, generated IDs, one-time starter Rockhorn grant, capture ownership handling, capture eligibility gating, and work-assignment eligibility validation.
 
-Phase 3 deliberately validates assignment without mutating the creature/building relationship. The two-sided worker assignment mutation remains part of Phase 4.
+Phase 3 deliberately validates assignment without mutating the creature/building relationship. The two-sided worker assignment mutation is implemented in Phase 4.
 
 Exit criteria are satisfied: a server-owned profile can gain a Rockhorn and invalid or duplicate ownership mutations are rejected with explicit domain results.
 
 ## Phase 4: Building and production loop
 
-Implement plot grid placement, building costs/upgrades, worker assignment, deterministic output calculation, claims, input consumption for processing buildings, and the 8-hour offline cap.
+**Status: In verification**
 
-Exit when the complete Rockhorn -> Mine -> Copper Ore -> Furnace -> Copper Bar chain works server-authoritatively.
+Implemented pure server-authoritative domains for:
+
+- 4-stud grid placement inside inclusive +/-64-stud plot bounds,
+- canonical construction costs and server-generated building instance IDs,
+- same-origin collision rejection,
+- atomic two-sided creature/building worker assignment and unassignment,
+- deterministic elapsed-time production claims,
+- summed canonical creature work affinities,
+- three production levels using multipliers 1.0 / 1.25 / 1.6,
+- canonical production-building upgrade costs,
+- processing input consumption through atomic inventory exchange,
+- claim-versus-settlement semantics for rate changes,
+- an 8-hour offline-production cap.
+
+The deterministic acceptance chain is:
+
+```text
+Rockhorn -> Mine -> Copper Ore -> Furnace + Embercub -> Copper Bar
+```
+
+Phase 4 is complete only when the registered end-to-end acceptance spec and the full formatting, lint, Lune, and Rojo validation gate pass on the exact final branch head.
 
 ## Phase 5: Playable vertical slice
 
