@@ -11,6 +11,7 @@ local CreatureDefinitions = require(Shared.Creatures.CreatureDefinitions)
 local UpgradeDomain = require(Shared.Buildings.UpgradeDomain)
 local CapacityDomain = require(Shared.Economy.CapacityDomain)
 local InventoryDomain = require(Shared.Economy.InventoryDomain)
+local TableUtil = require(Shared.Util.TableUtil)
 
 local Theme = require("../UI/Theme")
 local Widgets = require("../UI/Widgets")
@@ -175,7 +176,8 @@ function BuildingPanel._render(self: BuildingPanel, content: ScrollingFrame, sna
 
         if #building.assignedCreatureIds < definition.maxWorkers then
             local candidates = 0
-            for creatureId, creature in pairs(profile.creatures) do
+            for _, creatureId in ipairs(TableUtil.sortedKeys(profile.creatures)) do
+                local creature = profile.creatures[creatureId]
                 local species = CreatureDefinitions.ById[creature.speciesId]
                 local affinity = if species ~= nil
                     then species.workAffinity[definition.workType]

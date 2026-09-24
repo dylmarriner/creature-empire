@@ -57,7 +57,16 @@ function ActionClient.send(
     remote:FireServer(requestId, payload or {})
 
     task.delay(REQUEST_TIMEOUT_SECONDS, function()
-        self._pending[requestId] = nil
+        local pending = self._pending[requestId]
+        if pending ~= nil then
+            self._pending[requestId] = nil
+            pending({
+                ok = false,
+                code = "timeout",
+                message = "The server didn't respond. Please try again.",
+                value = nil,
+            })
+        end
     end)
 end
 

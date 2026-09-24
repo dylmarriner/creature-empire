@@ -39,6 +39,7 @@ export type BuildController = typeof(setmetatable(
         _controls: Frame?,
         _renderConnection: RBXScriptConnection?,
         _placing: boolean,
+        _generation: number,
     },
     BuildController
 ))
@@ -58,6 +59,7 @@ function BuildController.new(hud: any, state: any, actions: any): BuildControlle
         _controls = nil,
         _renderConnection = nil,
         _placing = false,
+        _generation = 0,
     }, BuildController)
 end
 
@@ -214,6 +216,10 @@ end
 
 function BuildController.cancel(self: BuildController)
     self._definitionId = nil
+    self._valid = false
+    self._placing = false
+    -- Results for requests from an earlier placement session are ignored.
+    self._generation += 1
     if self._renderConnection ~= nil then
         self._renderConnection:Disconnect()
         self._renderConnection = nil
@@ -243,6 +249,7 @@ function BuildController.confirm(self: BuildController)
     end
 
     self._placing = true
+    local generation = self._generation
     local definition = BuildingDefinitions.ById[definitionId]
     self._actions:send("PlaceBuilding", {
         definitionId = definitionId,
@@ -250,6 +257,9 @@ function BuildController.confirm(self: BuildController)
         cellZ = self._cellZ,
         rotation = self._rotation,
     }, function(result: any)
+        if generation ~= self._generation then
+            return
+        end
         self._placing = false
         if result.ok then
             self._hud.toasts:show("gain", `{definition.displayName} built!`)
@@ -296,7 +306,18 @@ function BuildController._update(self: BuildController)
     local definition = BuildingDefinitions.ById[definitionId]
     local width, depth = PlacementDomain.footprintFor(definition, self._rotation)
     local hit = self:_pointerOnPlot(corner)
-    if hit == nil then
+    local localX = if hit ~= nil then hit.X - corner.X else -1
+    local localZ = if hit ~= nil then hit.Z - corner.Z else -1
+    if
+        hit == nil
+        or localX < 0
+        or localZ < 0
+        or localX > WorldLayout.PLOT_STUDS
+        or localZ > WorldLayout.PLOT_STUDS
+    then
+        -- Pointing off the plot never places, even though the ghost stays at its last cell.
+        self._valid = false
+        ghost.Color = INVALID_COLOR
         return
     end
 
@@ -313,7 +334,8 @@ function BuildController._update(self: BuildController)
     local affordable = InventoryDomain.canAfford(profile, definition.cost)
     self._valid = check.ok == true and affordable
 
-    local height = 5 + definition.footprint.x
+    -- Matches the level-1 model height in PlotService.
+    local height = 5 + definition.footprint.x + 1
     local center = corner
         + Vector3.new(
             (cellX + width / 2) * CELL,
@@ -331,14 +353,15 @@ end
 
 function BuildController.start(self: BuildController)
     UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
-        if self._definitionId == nil then
+        -- `processed` covers typing in chat and presses on GUI buttons.
+        if self._definitionId == nil or processed then
             return
         end
         if input.KeyCode == Enum.KeyCode.R then
             self:rotate()
         elseif input.KeyCode == Enum.KeyCode.Q or input.KeyCode == Enum.KeyCode.Escape then
             self:cancel()
-        elseif not processed then
+        else
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
                 self._pointer = nil
                 self:confirm()
