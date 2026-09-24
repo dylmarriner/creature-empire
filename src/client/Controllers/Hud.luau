@@ -1,6 +1,7 @@
 -- The always-on HUD: resources, objective tracker, action bar, loading overlay and a single
 -- modal panel host shared by every menu.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local ItemDefinitions = require(Shared.Items.ItemDefinitions)
@@ -11,12 +12,17 @@ local Toasts = require("./Toasts")
 
 export type PanelRenderer = (content: ScrollingFrame, snapshot: any) -> ()
 
+-- The HUD is laid out for this viewport width and scaled down uniformly on smaller screens.
+local DESIGN_WIDTH = 1000
+local MIN_SCALE = 0.55
+
 local Hud = {}
 Hud.__index = Hud
 
 export type Hud = typeof(setmetatable(
     {} :: {
         screen: ScreenGui,
+        root: Frame,
         toasts: Toasts.Toasts,
         _resources: Frame,
         _objective: Frame,
@@ -39,9 +45,34 @@ function Hud.new(playerGui: PlayerGui): Hud
     screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     screen.Parent = playerGui
 
+    -- Every HUD element lives under `root`. Scaling the root by `s` while sizing it to 1/s of
+    -- the screen keeps anchored elements at the screen edges.
+    local root = Widgets.frame({
+        name = "Root",
+        parent = screen,
+        size = UDim2.fromScale(1, 1),
+        transparency = 1,
+        rounded = false,
+    })
+    local uiScale = Instance.new("UIScale")
+    uiScale.Parent = root
+
+    local function applyScale()
+        local camera = Workspace.CurrentCamera
+        local width = if camera ~= nil then camera.ViewportSize.X else DESIGN_WIDTH
+        local scale = math.clamp(width / DESIGN_WIDTH, MIN_SCALE, 1)
+        uiScale.Scale = scale
+        root.Size = UDim2.fromScale(1 / scale, 1 / scale)
+    end
+    applyScale()
+    local camera = Workspace.CurrentCamera
+    if camera ~= nil then
+        camera:GetPropertyChangedSignal("ViewportSize"):Connect(applyScale)
+    end
+
     local resources = Widgets.frame({
         name = "Resources",
-        parent = screen,
+        parent = root,
         size = UDim2.fromOffset(210, 0),
         position = UDim2.fromOffset(12, 12),
         color = Theme.Background,
@@ -53,7 +84,7 @@ function Hud.new(playerGui: PlayerGui): Hud
 
     local objective = Widgets.frame({
         name = "Objective",
-        parent = screen,
+        parent = root,
         size = UDim2.fromOffset(290, 0),
         position = UDim2.new(1, -12, 0, 12),
         anchor = Vector2.new(1, 0),
@@ -66,7 +97,7 @@ function Hud.new(playerGui: PlayerGui): Hud
 
     local actionBar = Widgets.frame({
         name = "ActionBar",
-        parent = screen,
+        parent = root,
         size = UDim2.fromOffset(0, 44),
         position = UDim2.new(0.5, 0, 1, -12),
         anchor = Vector2.new(0.5, 1),
@@ -79,7 +110,7 @@ function Hud.new(playerGui: PlayerGui): Hud
 
     local panel = Widgets.frame({
         name = "Panel",
-        parent = screen,
+        parent = root,
         size = UDim2.new(0, 380, 0.62, 0),
         position = UDim2.new(1, -12, 0.5, 20),
         anchor = Vector2.new(1, 0.5),
@@ -113,7 +144,7 @@ function Hud.new(playerGui: PlayerGui): Hud
 
     local loading = Widgets.frame({
         name = "Loading",
-        parent = screen,
+        parent = root,
         size = UDim2.fromScale(1, 1),
         color = Theme.Background,
         rounded = false,
@@ -131,7 +162,8 @@ function Hud.new(playerGui: PlayerGui): Hud
 
     local self = setmetatable({
         screen = screen,
-        toasts = Toasts.new(screen),
+        root = root,
+        toasts = Toasts.new(root),
         _resources = resources,
         _objective = objective,
         _actionBar = actionBar,

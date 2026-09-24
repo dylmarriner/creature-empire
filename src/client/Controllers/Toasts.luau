@@ -25,10 +25,10 @@ export type Toasts = typeof(setmetatable(
     Toasts
 ))
 
-function Toasts.new(screen: ScreenGui): Toasts
+function Toasts.new(root: GuiObject): Toasts
     local container = Widgets.frame({
         name = "Toasts",
-        parent = screen,
+        parent = root,
         size = UDim2.fromOffset(420, 300),
         position = UDim2.new(0.5, 0, 0, 64),
         anchor = Vector2.new(0.5, 0),

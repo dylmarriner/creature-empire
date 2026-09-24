@@ -139,7 +139,7 @@ end
 function BuildController._createControls(self: BuildController)
     local controls = Widgets.frame({
         name = "PlacementControls",
-        parent = self._hud.screen,
+        parent = self._hud.root,
         size = UDim2.fromOffset(0, 44),
         position = UDim2.new(0.5, 0, 1, -64),
         anchor = Vector2.new(0.5, 1),
