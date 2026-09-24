@@ -87,6 +87,12 @@ function ProfileStore.new(options: Options): ProfileStore
     }, ProfileStore)
 end
 
+-- DataStore key metadata only accepts real (positive) user ids; Studio test players are
+-- negative.
+local function userIdsFor(userId: number): { number }?
+    return if userId > 0 then { userId } else nil
+end
+
 local function isHeldByOther(session: any, jobId: string, now: number, timeout: number): boolean
     if type(session) ~= "table" or session.jobId == jobId then
         return false
@@ -158,7 +164,7 @@ function ProfileStore.load(
                 profile = migrated,
                 session = { jobId = self._jobId, lockedAt = now },
             }
-        end, { userId })
+        end, userIdsFor(userId))
 
         if success then
             if outcome == "loaded" or outcome == "created" then
@@ -217,7 +223,7 @@ function ProfileStore.save(
                 profile = profile,
                 session = if release then nil else { jobId = self._jobId, lockedAt = now },
             }
-        end, { userId })
+        end, userIdsFor(userId))
 
         if success then
             if outcome == "saved" then

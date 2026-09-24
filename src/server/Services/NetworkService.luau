@@ -230,6 +230,14 @@ function NetworkService.start(self: NetworkService)
         end)
     end
 
+    -- Server-to-client remotes get a listener too, so events fired at them by a modified client
+    -- are dropped instead of queueing on the server.
+    for _, remoteName in pairs(RemoteNames) do
+        self:_remote(remoteName).OnServerEvent:Connect(function(player: Player)
+            self:_reject(player, `client fired server-to-client remote {remoteName}`)
+        end)
+    end
+
     Players.PlayerRemoving:Connect(function(player)
         self._limiter:forgetPrefix(`{player.UserId}:`)
         self._rejections[player] = nil

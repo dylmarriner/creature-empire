@@ -42,6 +42,7 @@ Server logs are structured lines prefixed `[CreatureEmpire:<scope>]` with `key=v
 | `profile load refused status=invalid` | stored data failed validation; the player was kicked and the data left untouched | inspect the record, write an explicit migration or repair |
 | `profile load refused status=error` | DataStore outage or budget exhaustion | check Roblox status; players can rejoin |
 | `profile save failed` | a save exhausted its retries | investigate DataStore health; the next autosave retries |
+| `release save failed; progress since the last save was lost` | every retry of a leave-time save failed | check DataStore health; the player lost at most one autosave interval |
 | `session lock lost` | another server took over a profile | expected occasionally on fast server hops; frequent occurrences mean servers are slow to release |
 | `action failed unexpectedly` | a domain bug threw or produced an invalid profile; the mutation was discarded | reproduce from the action name and fix |
 | `repaired profile assignment references` | load-time integrity repair removed dangling references | expected to be rare; a trend points at a bug |

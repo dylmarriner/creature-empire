@@ -25,12 +25,16 @@ local Logger = require("./Logger")
 local DATASTORE_NAME = "PlayerProfiles_v1"
 local AUTOSAVE_INTERVAL_SECONDS = 90
 local SHUTDOWN_TIMEOUT_SECONDS = 25
+local RELEASE_ATTEMPTS = 4
+local RELEASE_RETRY_SECONDS = 5
+local REJOIN_WAIT_SECONDS = 60
 
 local KICK_LOAD_FAILED =
     "We couldn't load your save data. Nothing was lost - please rejoin in a minute."
 local KICK_INVALID =
     "Your save data could not be read safely. Nothing was overwritten - please contact support."
 local KICK_SESSION_LOST = "Your save data was opened on another server. Please rejoin."
+local KICK_SHUTTING_DOWN = "This server is restarting. Please rejoin."
 
 local logger = Logger.new("PlayerData")
 
@@ -40,6 +44,7 @@ export type Session = {
     key: string,
     profile: any,
     saving: boolean,
+    releasing: boolean,
     released: boolean,
 }
 
@@ -48,9 +53,12 @@ PlayerDataService.__index = PlayerDataService
 
 export type PlayerDataService = typeof(setmetatable(
     {} :: {
-        _store: ProfileStore.ProfileStore,
+        _store: ProfileStore.ProfileStore?,
+        _jobId: string,
         _sessions: { [Player]: Session },
         _loading: { [Player]: boolean },
+        -- userId -> the session currently being released for that user.
+        _releasing: { [number]: Session },
         _onLoaded: (player: Player) -> (),
         _onReleased: (player: Player) -> (),
         _clock: () -> number,
@@ -111,28 +119,23 @@ function PlayerDataService.new(options: {
     onLoaded: (player: Player) -> (),
     onReleased: (player: Player) -> (),
 }): PlayerDataService
-    local adapter, usingMemoryStore = createStoreAdapter()
     local jobId = if game.JobId ~= ""
         then game.JobId
         else `studio_{HttpService:GenerateGUID(false)}`
 
+    -- The store is created in start(): choosing it can yield (the Studio access probe), and
+    -- construction must not delay the rest of server startup.
     local self = setmetatable({
-        _store = ProfileStore.new({
-            store = adapter,
-            schema = ProfileSchema,
-            jobId = jobId,
-            clock = options.clock,
-            wait = function(seconds: number)
-                task.wait(seconds)
-            end,
-        }),
+        _store = nil,
+        _jobId = jobId,
         _sessions = {},
         _loading = {},
+        _releasing = {},
         _onLoaded = options.onLoaded,
         _onReleased = options.onReleased,
         _clock = options.clock,
         _shuttingDown = false,
-        usingMemoryStore = usingMemoryStore,
+        usingMemoryStore = false,
     }, PlayerDataService)
 
     return self
@@ -143,38 +146,58 @@ function PlayerDataService.getProfile(self: PlayerDataService, player: Player): 
     return if session ~= nil then session.profile else nil
 end
 
--- Replaces the committed profile. Only ActionService calls this, after validation.
-function PlayerDataService.setProfile(self: PlayerDataService, player: Player, profile: any)
+-- Replaces the committed profile. Only ActionService calls this, after validation. Returns
+-- false when the session no longer accepts changes (released or releasing), in which case
+-- the commit must be treated as refused.
+function PlayerDataService.setProfile(
+    self: PlayerDataService,
+    player: Player,
+    profile: any
+): boolean
     local session = self._sessions[player]
-    if session ~= nil and not session.released then
-        session.profile = profile
+    if session == nil or session.released or session.releasing then
+        return false
     end
+    session.profile = profile
+    return true
 end
 
 function PlayerDataService.isLoaded(self: PlayerDataService, player: Player): boolean
     return self._sessions[player] ~= nil
 end
 
-function PlayerDataService._save(self: PlayerDataService, session: Session, release: boolean)
+function PlayerDataService._requireStore(self: PlayerDataService): ProfileStore.ProfileStore
+    local store = self._store
+    assert(store ~= nil, "PlayerDataService used before start()")
+    return store
+end
+
+-- Saves a session. Returns the ProfileStore save status, or "skipped" for a session that
+-- has already been released.
+function PlayerDataService._save(
+    self: PlayerDataService,
+    session: Session,
+    release: boolean
+): string
     while session.saving do
         task.wait(0.1)
     end
     if session.released then
-        return
+        return "skipped"
     end
 
     session.saving = true
     local snapshot = TableUtil.deepCopy(session.profile)
     snapshot.lastSeenAt = math.max(snapshot.lastSeenAt, self._clock())
 
-    local status, detail = self._store:save(session.key, session.userId, snapshot, release)
+    local status, detail = self:_requireStore():save(session.key, session.userId, snapshot, release)
     session.saving = false
 
     if status == "saved" then
         if release then
             session.released = true
         end
-        return
+        return status
     end
 
     if status == "session_lost" then
@@ -194,17 +217,30 @@ function PlayerDataService._save(self: PlayerDataService, session: Session, rele
             release = release,
         })
     end
+    return status
 end
 
 function PlayerDataService._load(self: PlayerDataService, player: Player)
     if self._sessions[player] ~= nil or self._loading[player] then
         return
     end
+    if self._shuttingDown then
+        player:Kick(KICK_SHUTTING_DOWN)
+        return
+    end
     self._loading[player] = true
 
     local userId = player.UserId
     local key = keyFor(userId)
-    local status, profile, detail = self._store:load(key, userId)
+
+    -- A quick rejoin on this server must not read the record before the previous session's
+    -- release save lands; this server's own lock would not make the load wait.
+    local waitDeadline = os.clock() + REJOIN_WAIT_SECONDS
+    while self._releasing[userId] ~= nil and os.clock() < waitDeadline do
+        task.wait(0.25)
+    end
+
+    local status, profile, detail = self:_requireStore():load(key, userId)
     self._loading[player] = nil
 
     if status ~= "loaded" and status ~= "created" then
@@ -232,13 +268,18 @@ function PlayerDataService._load(self: PlayerDataService, player: Player)
         key = key,
         profile = profile,
         saving = false,
+        releasing = false,
         released = false,
     }
     self._sessions[player] = session
 
-    if player.Parent ~= Players then
-        -- The player left while the profile was loading; release the lock straight away.
+    if player.Parent ~= Players or self._shuttingDown then
+        -- The player left, or the server began shutting down, while the profile was loading;
+        -- release the lock straight away.
         self:_release(player)
+        if player.Parent == Players then
+            player:Kick(KICK_SHUTTING_DOWN)
+        end
         return
     end
 
@@ -248,18 +289,54 @@ end
 
 function PlayerDataService._release(self: PlayerDataService, player: Player)
     local session = self._sessions[player]
-    if session == nil then
+    if session == nil or session.releasing then
         return
     end
+    session.releasing = true
+    self._releasing[session.userId] = session
 
-    self:_save(session, true)
+    -- A failed release save is retried: dropping the session would lose progress and leave a
+    -- fresh lock that delays the player's next join. During shutdown there is no time to wait.
+    local status = "skipped"
+    for attempt = 1, RELEASE_ATTEMPTS do
+        status = self:_save(session, true)
+        if status ~= "error" or self._shuttingDown then
+            break
+        end
+        if attempt < RELEASE_ATTEMPTS then
+            task.wait(RELEASE_RETRY_SECONDS * attempt)
+        end
+    end
+
+    if status == "error" or status == "invalid" then
+        logger.error("release save failed; progress since the last save was lost", {
+            userId = session.userId,
+            status = status,
+        })
+    end
+
     if self._sessions[player] == session then
         self._sessions[player] = nil
         self._onReleased(player)
     end
+    if self._releasing[session.userId] == session then
+        self._releasing[session.userId] = nil
+    end
 end
 
 function PlayerDataService.start(self: PlayerDataService)
+    local adapter, usingMemoryStore = createStoreAdapter()
+    self.usingMemoryStore = usingMemoryStore
+    self._store = ProfileStore.new({
+        store = adapter,
+        schema = ProfileSchema,
+        jobId = self._jobId,
+        clock = self._clock,
+        wait = function(seconds: number)
+            task.wait(seconds)
+        end,
+    })
+
     Players.PlayerAdded:Connect(function(player)
         self:_load(player)
     end)
@@ -294,11 +371,16 @@ function PlayerDataService.start(self: PlayerDataService)
             end)
         end
 
+        -- Loads still in flight release their own lock once they see _shuttingDown, and
+        -- releases already started by PlayerRemoving are waited for too.
         local deadline = os.clock() + SHUTDOWN_TIMEOUT_SECONDS
-        while pending > 0 and os.clock() < deadline do
+        local function busy(): boolean
+            return pending > 0 or next(self._loading) ~= nil or next(self._releasing) ~= nil
+        end
+        while busy() and os.clock() < deadline do
             task.wait(0.1)
         end
-        if pending > 0 then
+        if busy() then
             logger.error("shutdown finished with unsaved profiles", { pending = pending })
         end
     end)

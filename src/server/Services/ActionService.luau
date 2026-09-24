@@ -79,7 +79,10 @@ function ActionService.mutate(
     end
 
     if outcome.committed then
-        self._playerData:setProfile(player, outcome.profile)
+        if not self._playerData:setProfile(player, outcome.profile) then
+            -- The session is being saved and released; a commit now could never persist.
+            return { ok = false, code = "not_ready", message = "your profile is being saved" }
+        end
         for _, objectiveId in ipairs(outcome.completedObjectives) do
             local objective = ObjectiveDefinitions.ById[objectiveId]
             logger.info("objective completed", {

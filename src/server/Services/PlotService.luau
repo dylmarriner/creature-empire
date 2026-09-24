@@ -28,6 +28,7 @@ type PlotRecord = {
     buildings: Folder,
     corner: Vector3,
     signatures: { [string]: string },
+    characterConnection: RBXScriptConnection?,
 }
 
 export type PlotService = typeof(setmetatable(
@@ -191,12 +192,13 @@ function PlotService.assign(self: PlotService, player: Player)
         buildings = buildings,
         corner = corner,
         signatures = {},
+        characterConnection = nil,
     }
 
     player:SetAttribute("PlotCorner", corner)
     player:SetAttribute("PlotIndex", index)
 
-    player.CharacterAdded:Connect(function(character)
+    self._plots[player].characterConnection = player.CharacterAdded:Connect(function(character)
         self:_moveToPlot(player, character)
     end)
     if player.Character ~= nil then
@@ -204,16 +206,35 @@ function PlotService.assign(self: PlotService, player: Player)
     end
 end
 
+-- Spawn just outside the plot's south edge, facing into it, so buildings can never cover it.
+local function spawnCFrame(record: PlotRecord): CFrame
+    local spawnPoint = record.corner + Vector3.new(PLOT_STUDS / 2, BASE_TOP + 4, -6)
+    return CFrame.lookAt(spawnPoint, spawnPoint + Vector3.new(0, 0, 1))
+end
+
 function PlotService._moveToPlot(self: PlotService, player: Player, character: Model)
     local record = self._plots[player]
     if record == nil then
         return
     end
-    task.defer(function()
-        if character.Parent ~= nil then
-            local spawnPoint = record.corner + Vector3.new(PLOT_STUDS / 2, BASE_TOP + 4, 6)
-            character:PivotTo(CFrame.lookAt(spawnPoint, spawnPoint + Vector3.new(0, 0, 1)))
+    task.spawn(function()
+        -- CharacterAdded can fire before the character is parented or has its root part, so
+        -- wait (bounded) until it is in the world before moving it.
+        local deadline = os.clock() + 10
+        while not character:IsDescendantOf(Workspace) and os.clock() < deadline do
+            task.wait(0.1)
         end
+        local root = character:WaitForChild("HumanoidRootPart", math.max(0, deadline - os.clock()))
+        if
+            root == nil
+            or not character:IsDescendantOf(Workspace)
+            or self._plots[player] ~= record
+        then
+            return
+        end
+        -- Let the engine's own spawn placement finish before overriding it.
+        task.wait()
+        character:PivotTo(spawnCFrame(record))
     end)
 end
 
@@ -235,6 +256,9 @@ function PlotService.release(self: PlotService, player: Player)
     end
     self._plots[player] = nil
     self._usedSlots[record.index] = nil
+    if record.characterConnection ~= nil then
+        record.characterConnection:Disconnect()
+    end
     record.model:Destroy()
 end
 

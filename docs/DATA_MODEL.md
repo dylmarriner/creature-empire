@@ -93,6 +93,8 @@ Profiles are stored in the DataStore `PlayerProfiles_v1` under the key `player_<
 - A lock held by another server is waited on (5 attempts with increasing delays). A lock older than 30 minutes is treated as abandoned. On the final attempt the lock is taken over; the previous holder's next save sees the foreign `jobId`, is refused, and that server stops writing and kicks its copy of the player. Two servers can therefore never interleave writes.
 - **Save** only writes while this server holds the lock, only writes schema-valid profiles, refreshes `lockedAt`, and retries transient failures. Leaving and shutdown saves release the lock.
 - Autosave runs every 90 seconds; saves for one player are serialised.
+- A failed release save (on leave) is retried up to four times with backoff before the session is dropped and the loss is logged. While a release is in flight, commits for that session are refused, and a rejoin on the same server waits for the release to land before loading.
+- During shutdown, new joins are refused, in-flight loads release their lock as soon as they finish, and the server waits (up to 25 seconds) for every load and release to complete.
 - A DataStore outage during load kicks the player instead of starting them on an unsaved profile.
 
 In Studio without API access the server falls back to `MemoryStore` and logs a warning. Live servers never use the memory store.

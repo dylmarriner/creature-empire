@@ -29,6 +29,9 @@ local CREATURE_SPAWN_COUNT = 14
 local PROMPT_RANGE = 12
 local RANGE_TOLERANCE = 8
 local CAPTURE_COOLDOWN_SECONDS = 2
+-- Applies across all nodes, so teleporting between nodes cannot multiply gather speed.
+local GATHER_GLOBAL_COOLDOWN_SECONDS = 0.75
+local PATH_CLEARANCE = 9
 local RESPAWN_MIN_SECONDS = 20
 local RESPAWN_MAX_SECONDS = 40
 local WANDER_RADIUS = 14
@@ -163,13 +166,22 @@ end
 function WorldService._randomWildsPoint(self: WorldService, margin: number): Vector3
     local center = WorldLayout.WILDS_CENTER
     local radius = WorldLayout.WILDS_RADIUS - margin
-    local angle = self._worldRandom:NextNumber(0, math.pi * 2)
-    local distance = math.sqrt(self._worldRandom:NextNumber()) * radius
-    return Vector3.new(
-        center.x + math.cos(angle) * distance,
-        0,
-        center.z + math.sin(angle) * distance
-    )
+    local point = Vector3.new(center.x, 0, center.z)
+    -- Keep the entrance path clear; bounded retries keep generation deterministic and finite.
+    for _ = 1, 20 do
+        local angle = self._worldRandom:NextNumber(0, math.pi * 2)
+        local distance = math.sqrt(self._worldRandom:NextNumber()) * radius
+        point = Vector3.new(
+            center.x + math.cos(angle) * distance,
+            0,
+            center.z + math.sin(angle) * distance
+        )
+        local onPath = math.abs(point.X - center.x) < PATH_CLEARANCE and point.Z > center.z
+        if not onPath then
+            break
+        end
+    end
+    return point
 end
 
 function WorldService._buildTerrain(self: WorldService)
@@ -206,7 +218,8 @@ function WorldService._buildTerrain(self: WorldService)
     spawn.Parent = self._folder
 
     -- Path from the spawn to the Wilds.
-    local pathLength = math.abs(center.z) - WorldLayout.WILDS_RADIUS + 10
+    -- The path stops at the Wilds edge so it does not overlap (and z-fight with) the floor.
+    local pathLength = math.abs(center.z) - WorldLayout.WILDS_RADIUS
     local path = makePart(
         "Path",
         Vector3.new(10, 0.2, pathLength),
@@ -297,6 +310,9 @@ function WorldService._gather(
 )
     local definition = ResourceNodeDefinitions.ById[nodeDefinitionId]
     if not self:_inRange(player, part) then
+        return
+    end
+    if not self:_consumeCooldown(player, "gather", GATHER_GLOBAL_COOLDOWN_SECONDS) then
         return
     end
     if not self:_consumeCooldown(player, nodeKey, definition.cooldownSeconds) then
