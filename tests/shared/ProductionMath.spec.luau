@@ -1,17 +1,25 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local JestGlobals = require(ReplicatedStorage.Packages.JestGlobals)
-local ProductionMath = require(ReplicatedStorage.Shared.Economy.ProductionMath)
+local Expect = require("../support/Expect")
+local ProductionMath = require("../../src/shared/Economy/ProductionMath")
+local GridMath = require("../../src/shared/Buildings/GridMath")
 
-local describe = JestGlobals.describe
-local expect = JestGlobals.expect
-local it = JestGlobals.it
+local function run()
+    Expect.equal(ProductionMath.calculateOutput(10, 1, 1, 1, 120), 20, "base production")
+    Expect.equal(
+        ProductionMath.clampElapsedSeconds(12 * 60 * 60),
+        8 * 60 * 60,
+        "offline production cap"
+    )
+    Expect.equal(GridMath.snapCoordinate(5.9, 4), 4, "positive grid snap")
+    Expect.equal(GridMath.snapCoordinate(-5.9, 4), -4, "negative grid snap")
 
-describe("ProductionMath", function()
-    it("calculates deterministic elapsed-time production", function()
-        expect(ProductionMath.calculateOutput(10, 1, 1, 1, 120)).toBe(20)
-    end)
+    local snapped = GridMath.snapPosition({ x = 7.9, y = 0.1, z = -9.2 }, 4)
+    Expect.equal(snapped.x, 8, "position x")
+    Expect.equal(snapped.y, 0, "position y")
+    Expect.equal(snapped.z, -8, "position z")
 
-    it("caps offline production to eight hours by default", function()
-        expect(ProductionMath.clampElapsedSeconds(12 * 60 * 60)).toBe(8 * 60 * 60)
-    end)
-end)
+    Expect.truthy(not pcall(ProductionMath.calculateOutput, -1, 1, 1, 1, 60), "negative rate")
+    Expect.truthy(not pcall(ProductionMath.calculateOutput, 0 / 0, 1, 1, 1, 60), "NaN rate")
+    Expect.truthy(not pcall(ProductionMath.clampElapsedSeconds, math.huge), "infinite elapsed")
+end
+
+return run

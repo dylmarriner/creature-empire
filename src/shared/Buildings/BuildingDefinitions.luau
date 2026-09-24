@@ -1,4 +1,6 @@
-local ids = table.freeze({
+local TableUtil = require("../Util/TableUtil")
+
+local ids = {
     "building_mine",
     "building_lumber_mill",
     "building_farm",
@@ -7,81 +9,124 @@ local ids = table.freeze({
     "building_warehouse",
     "building_creature_habitat",
     "building_workbench",
-})
+}
 
+-- Production buildings run recipe cycles. Each cycle consumes `inputs` and yields `outputs`.
+-- Cycle rate = cyclesPerMinute x level multiplier x summed worker multipliers, so a
+-- production building without workers is idle.
+--
+-- footprint is measured in plot grid cells before rotation. color is presentation data only.
 local byId = {
     building_mine = {
         id = "building_mine",
         displayName = "Mine",
+        description = "Rockhorns dig copper ore and stone.",
         kind = "production",
         cost = { item_wood = 20, item_stone = 30 },
+        footprint = { x = 3, z = 3 },
+        maxCount = 4,
         workType = "mining",
         maxWorkers = 2,
-        baseRatePerMinute = 6,
-        outputItemId = "item_copper_ore",
+        cyclesPerMinute = 6,
+        inputs = {},
+        outputs = { item_copper_ore = 1, item_stone = 1 },
+        color = { r = 110, g = 110, b = 120 },
     },
     building_lumber_mill = {
         id = "building_lumber_mill",
         displayName = "Lumber Mill",
+        description = "Timberpaws fell and saw wood.",
         kind = "production",
         cost = { item_wood = 30, item_stone = 10 },
+        footprint = { x = 3, z = 3 },
+        maxCount = 4,
         workType = "logging",
         maxWorkers = 2,
-        baseRatePerMinute = 8,
-        outputItemId = "item_wood",
+        cyclesPerMinute = 8,
+        inputs = {},
+        outputs = { item_wood = 1 },
+        color = { r = 140, g = 96, b = 56 },
     },
     building_farm = {
         id = "building_farm",
         displayName = "Farm",
+        description = "Mosslings and Aquafins grow food.",
         kind = "production",
         cost = { item_wood = 25, item_stone = 5 },
+        footprint = { x = 4, z = 4 },
+        maxCount = 4,
         workType = "farming",
         maxWorkers = 2,
-        baseRatePerMinute = 6,
-        outputItemId = "item_food",
+        cyclesPerMinute = 6,
+        inputs = {},
+        outputs = { item_food = 1 },
+        color = { r = 120, g = 170, b = 70 },
     },
     building_furnace = {
         id = "building_furnace",
         displayName = "Furnace",
+        description = "Embercubs smelt copper ore into copper bars.",
         kind = "production",
         cost = { item_stone = 50, item_copper_ore = 15 },
+        footprint = { x = 3, z = 3 },
+        maxCount = 3,
         workType = "smelting",
         maxWorkers = 1,
-        baseRatePerMinute = 4,
-        outputItemId = "item_copper_bar",
-        inputItemId = "item_copper_ore",
-        inputPerOutput = 1,
+        cyclesPerMinute = 4,
+        inputs = { item_copper_ore = 1 },
+        outputs = { item_copper_bar = 1 },
+        color = { r = 190, g = 80, b = 40 },
     },
     building_generator = {
         id = "building_generator",
         displayName = "Generator",
+        description = "Voltfoxes generate energy for advanced upgrades.",
         kind = "production",
         cost = { item_stone = 30, item_copper_bar = 20 },
+        footprint = { x = 2, z = 2 },
+        maxCount = 3,
         workType = "power",
         maxWorkers = 1,
-        baseRatePerMinute = 5,
-        outputItemId = "item_energy",
+        cyclesPerMinute = 5,
+        inputs = {},
+        outputs = { item_energy = 1 },
+        color = { r = 230, g = 200, b = 60 },
     },
     building_warehouse = {
         id = "building_warehouse",
         displayName = "Warehouse",
+        description = "Raises the storage limit for every resource.",
         kind = "utility",
+        utility = "storage",
         cost = { item_wood = 80, item_stone = 40 },
+        footprint = { x = 4, z = 3 },
+        maxCount = 2,
         maxWorkers = 0,
+        color = { r = 150, g = 120, b = 90 },
     },
     building_creature_habitat = {
         id = "building_creature_habitat",
         displayName = "Creature Habitat",
+        description = "Houses more creatures so you can capture more.",
         kind = "utility",
+        utility = "habitat",
         cost = { item_wood = 60, item_stone = 30, item_food = 20 },
+        footprint = { x = 4, z = 4 },
+        maxCount = 3,
         maxWorkers = 0,
+        color = { r = 90, g = 160, b = 150 },
     },
     building_workbench = {
         id = "building_workbench",
         displayName = "Workbench",
+        description = "Unlocks building upgrades.",
         kind = "utility",
+        utility = "workbench",
         cost = { item_wood = 30, item_stone = 20 },
+        footprint = { x = 2, z = 2 },
+        maxCount = 1,
         maxWorkers = 0,
+        color = { r = 170, g = 130, b = 80 },
     },
 }
 
@@ -89,7 +134,7 @@ for _, id in ipairs(ids) do
     assert(byId[id] ~= nil, `Missing building definition for {id}`)
 end
 
-return table.freeze({
+return TableUtil.deepFreeze({
     Ids = ids,
-    ById = table.freeze(byId),
+    ById = byId,
 })
