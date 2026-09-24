@@ -4,13 +4,9 @@
 
 Persisted content uses stable string IDs. Display text is presentation and can change without migrations.
 
-Examples:
+Examples: `creature_rockhorn`, `building_mine`, `item_copper_ore`, `objective_build_mine`.
 
-- `creature_rockhorn`
-- `building_mine`
-- `item_copper_ore`
-
-Player-owned creature and building instances receive generated unique IDs.
+Player-owned instances receive server-generated IDs: `c_<guid>` for creatures and `b_<guid>` for buildings.
 
 ## Profile schema version 1
 
@@ -29,23 +25,15 @@ export type PlayerProfile = {
 }
 ```
 
-`schemaVersion` begins at 1. Migrations must be explicit and tested before any persisted shape changes.
-
-`src/shared/Profiles/ProfileSchema.luau` now owns the pure schema lifecycle for version 1:
+`src/shared/Profiles/ProfileSchema.luau` owns the schema lifecycle:
 
 - `createDefault(now)` creates a fresh profile with independent nested tables,
 - `validate(profile)` rejects malformed or unsupported profiles,
 - `migrate(profile)` validates the current schema and returns an independent deep copy.
 
-The current migration path is intentionally small because there is only one schema version. Unsupported versions are rejected rather than guessed into a shape that merely looks plausible.
+Unsupported versions are rejected rather than guessed into a shape that merely looks plausible. Migrations must be explicit, deterministic, idempotent and tested before any persisted shape changes.
 
-## Balance invariants
-
-Currency and inventory balances are finite non-negative integers.
-
-Inventory item keys must be canonical IDs from `ItemDefinitions`. Currency keys are limited to `coins` and `gems`. Mutation APIs require positive integer deltas and reject malformed quantities before changing the profile.
-
-Resource-cost transactions prevalidate every item and every balance before mutation, making multi-resource deductions atomic.
+The `unlocks` map holds one-time markers: `starter_creature_granted` and one `objective_*` key per completed objective. No schema change was needed for the vertical slice.
 
 ## Creature instance
 
@@ -53,8 +41,8 @@ Resource-cost transactions prevalidate every item and every balance before mutat
 export type CreatureInstance = {
     id: string,
     speciesId: string,
-    level: number,
-    experience: number,
+    level: number,          -- 1..10
+    experience: number,     -- progress toward the next level
     traits: { string },
     mutationId: string?,
     assignedBuildingId: string?,
@@ -67,26 +55,52 @@ export type CreatureInstance = {
 export type BuildingInstance = {
     id: string,
     definitionId: string,
-    level: number,
+    level: number,          -- 1..5
     position: { x: number, y: number, z: number },
-    rotation: number,
+    rotation: number,       -- 0, 90, 180 or 270
     assignedCreatureIds: { string },
-    lastClaimedAt: number,
+    lastClaimedAt: number,  -- server Unix seconds
 }
 ```
+
+`position` is the building's minimum corner in **plot-local grid cells** (`y` is always 0). It is independent of where the player's plot happens to be in a given server, so plots can be allocated to any slot and re-rendered from data.
+
+## Invariants
+
+- Currency and inventory balances are finite non-negative integers; inventory keys are canonical item IDs; currency keys are `coins` and `gems`.
+- Mutation APIs require positive integer deltas and reject malformed input before changing the profile.
+- Multi-resource costs are prevalidated in full before anything is deducted.
+- Worker assignment is two-sided: a creature's `assignedBuildingId` and the building's `assignedCreatureIds` always agree. Load-time integrity repair removes any reference that does not.
+- Every committed mutation passes full schema validation (see the transactional pipeline in `ARCHITECTURE.md`).
+
+## Stored record
+
+Profiles are stored in the DataStore `PlayerProfiles_v1` under the key `player_<userId>`, with the user id attached to the key for data-privacy tooling:
+
+```luau
+{
+    format = 1,
+    profile = PlayerProfile,
+    session = { jobId = string, lockedAt = number } | nil,
+}
+```
+
+## Session locking
+
+`src/server/Persistence/ProfileStore.luau` implements the protocol over an abstract `update(key, transform)` store; `DataStoreAdapter` binds it to `UpdateAsync`.
+
+- **Load** writes this server's `jobId` and the time into `session`. A missing record creates a default profile. An unknown record format or a profile that fails migration is **refused without writing**, and the player is kicked with a message; a known-good profile is never replaced with defaults.
+- A lock held by another server is waited on (5 attempts with increasing delays). A lock older than 30 minutes is treated as abandoned. On the final attempt the lock is taken over; the previous holder's next save sees the foreign `jobId`, is refused, and that server stops writing and kicks its copy of the player. Two servers can therefore never interleave writes.
+- **Save** only writes while this server holds the lock, only writes schema-valid profiles, refreshes `lockedAt`, and retries transient failures. Leaving and shutdown saves release the lock.
+- Autosave runs every 90 seconds; saves for one player are serialised.
+- A DataStore outage during load kicks the player instead of starting them on an unsaved profile.
+
+In Studio without API access the server falls back to `MemoryStore` and logs a warning. Live servers never use the memory store.
 
 ## Persistence constraints
 
 - Save structured data, never Roblox Instance references.
 - Never silently replace a known-good profile with defaults after a load failure.
 - Validate finite numeric values and non-negative balances.
-- Persist server time for production claims; do not trust client clocks.
+- Persist server time for production claims; never trust client clocks.
 - Session ownership must prevent two servers from concurrently mutating the same profile.
-- Schema migrations must be deterministic and idempotent.
-- Unknown schema versions are rejected until an explicit migration exists.
-
-## Current implementation boundary
-
-The pure profile schema and economy mutation domain are implemented and covered by the Linux-safe domain test runner.
-
-Production persistence is still future work. There is not yet a DataStore-backed `PlayerDataService`, session ownership/locking, autosave/retry policy, or Roblox lifecycle integration. Those systems must wrap the validated pure profile domain rather than duplicating schema or mutation rules in service code.

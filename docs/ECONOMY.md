@@ -4,96 +4,91 @@
 
 The economy should make creature acquisition and empire improvement reinforce each other. Resources exist to create decisions and progression, not to inflate into meaningless trillions during the tutorial.
 
-## Initial currencies
+All numbers below live in `src/shared/Config/GameConfig.luau`, `src/shared/Items/ItemDefinitions.luau` and `src/shared/Buildings/BuildingDefinitions.luau`. Balance is expected to change through playtesting; IDs are stable.
 
-The profile schema defines:
+## Currencies
 
-- Coins: standard earned currency.
-- Gems: premium/special currency reserved for later monetization and rewards design.
+- **Coins**: earned from objectives and selling resources; spent on building upgrades.
+- **Gems**: present in the schema and validated, but with no sources or sinks yet. Reserved for a later, separately designed monetization/reward plan.
 
-Pure server-domain mutation logic now exists for both currencies. Currency operations accept only the canonical `coins` and `gems` IDs, require finite positive integer amounts, reject insufficient balances without mutation, and distinguish unknown currencies from insufficient funds.
+Currency operations accept only `coins` and `gems`, require finite positive integer amounts and reject insufficient balances without mutation.
 
-These pure mutations are not yet exposed directly to clients and are not yet backed by a production DataStore service.
+## Resources
 
-## Initial resources
+| Item | Sources | Sinks | Sell price |
+| --- | --- | --- | --- |
+| Wood | trees (3 per chop), Lumber Mill | construction, upgrades | 1 |
+| Stone | rocks (3 per break), Mine | construction, upgrades | 1 |
+| Copper Ore | Mine | Furnace input, Furnace cost | 2 |
+| Copper Bar | Furnace | Generator cost | 6 |
+| Food | Farm | Creature Habitat cost | 2 |
+| Energy | Generator | upgrades to level 3+ | 3 |
 
-- Wood
-- Stone
-- Copper Ore
-- Copper Bar
-- Food
-- Energy
+Inventory keys must be canonical item IDs; balances are finite non-negative integers; zero balances are removed from the map. Multi-resource costs are validated in full before anything is deducted.
 
-Inventory mutation logic validates item IDs against `src/shared/Items/ItemDefinitions.luau`. Add/remove operations require finite positive integer quantities and cannot drive balances negative. Zero balances are removed from the persisted inventory map.
+## Storage
 
-Multi-resource costs are atomic: the complete cost is validated and checked for affordability before any resource is consumed. A failed cost therefore cannot leave the player with a half-completed transaction.
+Each resource has a storage limit: **200 + 300 per Warehouse level**. Production and gathering never raise a balance above the limit. Refunds and rewards may, so the limit caps income rather than confiscating owned resources.
 
-## Canonical building costs
+## Buildings
 
-Static building costs live in `src/shared/Buildings/BuildingDefinitions.luau` and are consumed through `BuildingCostDomain`.
+| Building | Cost | Footprint | Max | Work | Workers | Cycle | Per cycle |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Mine | 20 Wood, 30 Stone | 3×3 | 4 | mining | 2 | 6/min | +1 Copper Ore, +1 Stone |
+| Lumber Mill | 30 Wood, 10 Stone | 3×3 | 4 | logging | 2 | 8/min | +1 Wood |
+| Farm | 25 Wood, 5 Stone | 4×4 | 4 | farming | 2 | 6/min | +1 Food |
+| Furnace | 50 Stone, 15 Copper Ore | 3×3 | 3 | smelting | 1 | 4/min | −1 Copper Ore, +1 Copper Bar |
+| Generator | 30 Stone, 20 Copper Bar | 2×2 | 3 | power | 1 | 5/min | +1 Energy |
+| Warehouse | 80 Wood, 40 Stone | 4×3 | 2 | — | — | — | +300 storage per level |
+| Creature Habitat | 60 Wood, 30 Stone, 20 Food | 4×4 | 3 | — | — | — | +4 creature capacity per level |
+| Workbench | 30 Wood, 20 Stone | 2×2 | 1 | — | — | — | unlocks upgrades |
 
-A building-purchase request identifies the building definition only. The server-side domain looks up the canonical cost itself and delegates the deduction to the atomic inventory-cost operation. Callers do not provide authoritative prices or resource deductions.
+A building request names only the definition and a placement. The server looks up the canonical cost and deducts it atomically.
 
-For example, `building_mine` currently costs exactly:
+Removing a building settles its production, releases its workers and refunds **50%** (floored) of its base cost. Upgrade spending is not refunded.
 
-- 20 Wood
-- 30 Stone
+## Upgrades
 
-If the player cannot afford the complete cost, nothing is deducted.
+Upgrades require a Workbench and raise a building to at most level 5. The cost of reaching level `L`:
+
+- items: each base-cost item × 1.6^(L−1), rounded up,
+- energy: 10 × (L − 2) from level 3,
+- coins: 40 × (L − 1)².
+
+For example the Mine costs 32 Wood, 48 Stone and 40 coins for level 2, and 52 Wood, 77 Stone, 10 Energy and 160 coins for level 3.
+
+Production buildings gain +50% output per level above 1. Warehouses and Habitats scale their bonus by level.
 
 ## Production
 
-Production is elapsed-time simulation:
+Production is elapsed-time simulation in whole recipe cycles:
 
 ```text
-output = base rate per minute
-       × building multiplier
-       × worker multiplier
-       × trait multiplier
-       × elapsed minutes
+cycles per minute = building cyclesPerMinute
+                  × (1 + 0.5 × (building level − 1))
+                  × Σ over workers (species affinity × (1 + 0.05 × (creature level − 1)))
 ```
 
-Output is server-calculated. The current pure math floors fractional output to a non-negative integer and rejects negative, NaN, or infinite inputs.
+A production building with no workers is idle. Claims (`ProductionDomain.settle`) are server-calculated:
 
-Offline elapsed time is capped at 8 hours (28,800 seconds).
+- elapsed time is `now − lastClaimedAt`, capped at 8 hours (28,800 seconds);
+- whole cycles are floored; the clock advances only by the time those cycles took, so frequent claims never lose fractional progress and can never out-produce one long claim;
+- cycles are limited by available inputs and by free storage for every output; when limited, the building was effectively idle and its clock resets to now instead of banking time;
+- time beyond the offline cap is discarded;
+- assigned workers gain one experience point per cycle.
 
-## Sources and sinks
+Claim-all settles extractors before processors, so ore mined during the same claim can be smelted.
 
-Early sources:
+Assigning, unassigning, upgrading or removing a building first settles it at its old rate.
 
-- manual gathering,
-- creature-powered production,
-- exploration rewards,
-- progression rewards.
+## Market
 
-Early sinks:
+`SellResource` converts resources to coins at the canonical sell price above. The client sends only the item and quantity (1–100,000); prices never come from the client.
 
-- building construction,
-- building upgrades,
-- crafting/processing inputs,
-- later expansion costs.
+## Objectives
 
-Economy work must measure source/sink rates before introducing broad multipliers.
-
-## Current implementation boundary
-
-Implemented pure domain behavior:
-
-- profile currency defaults and validation,
-- inventory add/remove,
-- atomic resource costs,
-- Coins/Gems add and spend,
-- canonical building-cost affordability and purchase checks.
-
-Not yet implemented:
-
-- DataStore-backed profile persistence,
-- session locking/ownership,
-- Roblox-facing `InventoryService` / `EconomyService`,
-- remote request handlers,
-- production reward claiming,
-- building placement and ownership creation.
+A 19-step objective chain (`src/shared/Progression/ObjectiveDefinitions.luau`) teaches the loop and pays 10–100 coins per step, 705 coins in total. Objectives complete strictly in order and are derived from profile state, so completion never depends on client-reported events. Rewards are granted once, inside the same transaction as the action that satisfied them.
 
 ## Monetization principles
 
-The MVP must be enjoyable without purchases. Early monetization should favour cosmetics, clearly bounded convenience, account/social features, and private-world features. Extreme production multipliers that turn useful creatures into a payment check are specifically contrary to the game design.
+The MVP must be enjoyable without purchases. Early monetization should favour cosmetics, clearly bounded convenience, account/social features, and private-world features. Extreme production multipliers that turn useful creatures into a payment check are specifically contrary to the game design. No monetization is implemented in this milestone.

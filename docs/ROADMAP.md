@@ -4,51 +4,42 @@
 
 **Status: Complete**
 
-Exit criteria:
-
-- pinned toolchain installs,
-- Wally dependencies install,
-- formatting/lint checks pass,
-- pure-domain tests pass,
-- Rojo place builds,
-- canonical IDs/types/definitions exist,
-- server/client bootstraps load,
-- architecture and MVP boundaries are documented.
+Pinned toolchain, Wally, formatting/lint checks, pure-domain tests, Rojo build, canonical IDs/types/definitions, server/client bootstraps, documented architecture and MVP boundaries.
 
 ## Phase 2: Economy primitives
 
 **Status: Complete**
 
-Implemented inventory balances, currency balances, cost validation, atomic resource removal/addition, starter profile construction, profile schema validation, and migration tests.
-
-Exit criteria are satisfied when resource transactions cannot create negative balances and all mutation APIs return explicit domain results.
+Inventory balances, currency balances, cost validation, atomic resource removal/addition, starter profile construction, profile schema validation, and migration tests.
 
 ## Phase 3: Creature ownership
 
 **Status: Complete**
 
-Implemented owned creature instances, generated IDs, one-time starter Rockhorn grant, capture ownership handling, capture eligibility gating, and work-assignment eligibility validation.
-
-Phase 3 deliberately validates assignment without mutating the creature/building relationship. The two-sided worker assignment mutation remains part of Phase 4.
-
-Exit criteria are satisfied: a server-owned profile can gain a Rockhorn and invalid or duplicate ownership mutations are rejected with explicit domain results.
+Owned creature instances, generated IDs, one-time starter Rockhorn grant, capture ownership handling, capture eligibility gating, and work-assignment eligibility validation.
 
 ## Phase 4: Building and production loop
 
-Implement plot grid placement, building costs/upgrades, worker assignment, deterministic output calculation, claims, input consumption for processing buildings, and the 8-hour offline cap.
+**Status: Complete**
 
-Exit when the complete Rockhorn -> Mine -> Copper Ore -> Furnace -> Copper Bar chain works server-authoritatively.
+Implemented plot grid placement with rotation, bounds, overlap and per-type limits; building costs, Workbench-gated upgrades and removal refunds; two-sided worker assignment and unassignment; recipe-cycle production with worker affinity and level multipliers; processing inputs; storage limits; fractional-progress-preserving claims; and the 8-hour offline cap.
+
+Exit criterion met: `tests/integration/VerticalSlice.spec.luau` runs Rockhorn → Mine → Copper Ore → Furnace → Copper Bar server-side with a deterministic clock, then saves, reloads on another server and claims capped offline production.
 
 ## Phase 5: Playable vertical slice
 
-Implement the first exploration zone, gathering interactions, the six initial creatures, eight structures, UI, tutorial flow, persistence, and one complete progression path.
+**Status: Complete, pending a Studio playtest pass**
 
-Exit when a new player can progress from manual gathering to a functioning creature-powered automated empire without developer intervention.
+Implemented the Wilds exploration zone, gathering interactions, the six creatures with capture, the eight structures, habitat and storage capacity, creature levels, the market, a 19-step objective chain, session-locked persistence, a rate-limited validated network layer, plot rendering, and the HUD, build, building, creature and market UI.
+
+Exit criterion met in simulation: the integration test plays a new profile from manual gathering through every objective to a level-3 building using only game actions. It must still be confirmed by hand in Studio and on a published test place; see the playtest checklist in [`OPERATIONS.md`](OPERATIONS.md).
 
 ## Phase 6: Social validation
 
-Add plot visiting and only the social systems justified by playtesting.
+**Status: Not started**
+
+All players share one server world, so plots can already be visited on foot. Explicit plot visiting (teleport to a friend's plot, visitor labels) and any other social systems are added only when playtesting justifies them.
 
 ## Later specifications
 
-Breeding/genetics, mutations, combat expansion, trading, marketplace, guilds, seasons, monetization expansion, creator tools, AI-assisted creation, and UGC publishing each require their own design and implementation plan.
+Breeding/genetics, mutations, combat expansion, trading, marketplace, guilds, seasons, monetization, creator tools, AI-assisted creation, and UGC publishing each require their own design and implementation plan.
