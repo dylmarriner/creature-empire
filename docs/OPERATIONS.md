@@ -14,7 +14,7 @@ How to take Creature Empire from this repository to a live Roblox experience and
 
 Run for every release:
 
-1. CI is green on the release commit: formatting, lint, type-check, tests and Rojo build.
+1. `./scripts/validate.sh` passes on the release commit (formatting, lint, type-check, tests and Rojo build). CI runs the same checks when GitHub Actions is available.
 2. Publish to the test experience and complete the playtest checklist below with at least two players.
 3. Confirm the server log shows `server started` with `memoryStore=false` on the test experience.
 4. Publish to the live experience. Use *Shut down all servers* (or migrate to latest update) so every server runs one version.

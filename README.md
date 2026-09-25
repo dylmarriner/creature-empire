@@ -70,7 +70,19 @@ selene src tests
 
 `scripts/typecheck.sh` type-checks all source against the Roblox API with luau-lsp. `src/server` and `src/client` are checked in strict mode.
 
-Before treating a branch as valid, all five validation categories must pass: formatting, lint, type-check, tests, and Rojo build. CI runs the same checks on every push and pull request to `main`.
+Before treating a branch as valid, all five validation categories must pass: formatting, lint, type-check, tests, and Rojo build. Run them all at once with:
+
+```bash
+./scripts/validate.sh
+```
+
+To run them automatically before every push, enable the bundled hook once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+CI runs the same checks on every push and pull request to `main`. GitHub Actions is free for public repositories; a private repository on the free plan has a monthly allowance of free minutes, and jobs stop starting once it is used up. The local script and hook need no GitHub Actions at all.
 
 ## Repository map
 
