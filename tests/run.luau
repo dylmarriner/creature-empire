@@ -1,45 +1,55 @@
-local ProductionMath = require("../src/shared/Economy/ProductionMath")
-local GridMath = require("../src/shared/Buildings/GridMath")
-local runProfileSchemaSpec = require("./economy/ProfileSchema.spec")
-local runInventoryDomainSpec = require("./economy/InventoryDomain.spec")
-local runInventoryTransactionDomainSpec = require("./economy/InventoryTransactionDomain.spec")
-local runCurrencyDomainSpec = require("./economy/CurrencyDomain.spec")
-local runBuildingCostDomainSpec = require("./economy/BuildingCostDomain.spec")
-local runProductionDomainSpec = require("./economy/ProductionDomain.spec")
-local runBuildingPlacementDomainSpec = require("./buildings/BuildingPlacementDomain.spec")
-local runBuildingUpgradeDomainSpec = require("./buildings/BuildingUpgradeDomain.spec")
-local runCreatureOwnershipDomainSpec = require("./creatures/CreatureOwnershipDomain.spec")
-local runWorkAssignmentDomainSpec = require("./creatures/WorkAssignmentDomain.spec")
-local runWorkAssignmentMutationDomainSpec = require("./creatures/WorkAssignmentMutationDomain.spec")
-local runBuildingProductionLoopSpec = require("./integration/BuildingProductionLoop.spec")
+local process = require("@lune/process")
 
-local function expectEqual(actual: any, expected: any, label: string)
-    if actual ~= expected then
-        error(`{label}: expected {expected}, got {actual}`)
+local specs = {
+    { name = "shared/ProductionAndGridMath", run = require("./shared/ProductionMath.spec") },
+    { name = "shared/DefinitionsIntegrity", run = require("./shared/DefinitionsIntegrity.spec") },
+    { name = "economy/ProfileSchema", run = require("./economy/ProfileSchema.spec") },
+    { name = "economy/InventoryDomain", run = require("./economy/InventoryDomain.spec") },
+    { name = "economy/CurrencyDomain", run = require("./economy/CurrencyDomain.spec") },
+    { name = "economy/BuildingCostDomain", run = require("./economy/BuildingCostDomain.spec") },
+    {
+        name = "economy/InventoryTransactionDomain",
+        run = require("./economy/InventoryTransactionDomain.spec"),
+    },
+    { name = "economy/ProductionDomain", run = require("./economy/ProductionDomain.spec") },
+    { name = "economy/MarketAndCapacity", run = require("./economy/MarketAndCapacity.spec") },
+    {
+        name = "creatures/CreatureOwnershipDomain",
+        run = require("./creatures/CreatureOwnershipDomain.spec"),
+    },
+    {
+        name = "creatures/WorkAssignmentDomain",
+        run = require("./creatures/WorkAssignmentDomain.spec"),
+    },
+    {
+        name = "creatures/WorkAssignmentMutation",
+        run = require("./creatures/WorkAssignmentMutation.spec"),
+    },
+    { name = "buildings/PlacementDomain", run = require("./buildings/PlacementDomain.spec") },
+    { name = "buildings/UpgradeDomain", run = require("./buildings/UpgradeDomain.spec") },
+    { name = "world/GatheringDomain", run = require("./world/GatheringDomain.spec") },
+    { name = "progression/ObjectiveDomain", run = require("./progression/ObjectiveDomain.spec") },
+    { name = "profiles/ProfileIntegrity", run = require("./profiles/ProfileIntegrity.spec") },
+    { name = "net/ActionSchemas", run = require("./net/ActionSchemas.spec") },
+    { name = "gameplay/ActionPipeline", run = require("./gameplay/ActionPipeline.spec") },
+    { name = "server/ProfileStore", run = require("./server/ProfileStore.spec") },
+    { name = "integration/VerticalSlice", run = require("./integration/VerticalSlice.spec") },
+}
+
+local failures = 0
+for _, spec in ipairs(specs) do
+    local success, message = pcall(spec.run)
+    if success then
+        print(`PASS {spec.name}`)
+    else
+        failures += 1
+        print(`FAIL {spec.name}: {message}`)
     end
 end
 
-expectEqual(ProductionMath.calculateOutput(10, 1, 1, 1, 120), 20, "base production")
-expectEqual(ProductionMath.clampElapsedSeconds(12 * 60 * 60), 8 * 60 * 60, "offline production cap")
-expectEqual(GridMath.snapCoordinate(5.9, 4), 4, "positive grid snap")
-expectEqual(GridMath.snapCoordinate(-5.9, 4), -4, "negative grid snap")
+if failures > 0 then
+    print(`{failures} of {#specs} spec(s) failed`)
+    process.exit(1)
+end
 
-local snapped = GridMath.snapPosition({ x = 7.9, y = 0.1, z = -9.2 }, 4)
-expectEqual(snapped.x, 8, "position x")
-expectEqual(snapped.y, 0, "position y")
-expectEqual(snapped.z, -8, "position z")
-
-runProfileSchemaSpec()
-runInventoryDomainSpec()
-runInventoryTransactionDomainSpec()
-runCurrencyDomainSpec()
-runBuildingCostDomainSpec()
-runProductionDomainSpec()
-runBuildingPlacementDomainSpec()
-runBuildingUpgradeDomainSpec()
-runCreatureOwnershipDomainSpec()
-runWorkAssignmentDomainSpec()
-runWorkAssignmentMutationDomainSpec()
-runBuildingProductionLoopSpec()
-
-print("Creature Empire pure-domain tests passed")
+print(`Creature Empire pure-domain tests passed ({#specs} specs)`)

@@ -1,5 +1,7 @@
 # Building and Production Loop Implementation Plan
 
+> **Superseded.** This Phase 4 design was merged in PR #3 alongside a parallel implementation in PR #4. The two implemented the same rules with incompatible data shapes; PR #4's implementation (grid-cell placement, recipe-cycle production, five upgrade levels) was kept because the server, client and integration tests depend on it. See `docs/superpowers/plans/2026-09-24-production-loop-and-vertical-slice.md`. `InventoryDomain.applyTransaction` from this design remains in use.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Implement Phase 4 so a server-owned profile can place a Mine and Furnace, assign Rockhorn/Embercub atomically, produce and claim Copper Ore/Copper Bars deterministically, consume Furnace input, upgrade production buildings, and enforce the 8-hour offline cap.

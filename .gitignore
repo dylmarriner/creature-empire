@@ -5,5 +5,7 @@ DevPackages/
 *.rbxlx
 *.rbxm
 *.rbxmx
+sourcemap.json
+.luau-lsp/
 .DS_Store
 Thumbs.db

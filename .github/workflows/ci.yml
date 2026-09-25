@@ -30,7 +30,10 @@ jobs:
       - name: Lint Luau
         run: selene src tests
 
-      - name: Run pure-domain tests
+      - name: Type-check against the Roblox API
+        run: ./scripts/typecheck.sh
+
+      - name: Run pure-domain and integration tests
         run: lune run tests/run
 
       - name: Build Roblox place

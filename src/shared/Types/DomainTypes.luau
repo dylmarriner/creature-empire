@@ -56,6 +56,13 @@ export type DomainErrorCode =
     | "not_unlocked"
     | "nothing_to_claim"
     | "invalid_request"
+    | "storage_full"
+    | "creature_capacity_full"
+    | "creature_not_assigned"
+    | "building_limit_reached"
+    | "not_ready"
+    | "rate_limited"
+    | "internal_error"
 
 export type DomainResult<T> =
     { ok: true, value: T }

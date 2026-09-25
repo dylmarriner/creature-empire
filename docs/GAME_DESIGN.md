@@ -35,7 +35,7 @@ The key test is simple: obtaining a creature and assigning it to improve the emp
 - Mossling (`creature_mossling`): farming, nature.
 - Voltfox (`creature_voltfox`): power generation, electric.
 - Timberpaw (`creature_timberpaw`): logging, nature.
-- Aquafin (`creature_aquafin`): water work, water.
+- Aquafin (`creature_aquafin`): water work, water; irrigates farms until water structures exist.
 
 ### Structures
 
@@ -47,6 +47,18 @@ The key test is simple: obtaining a creature and assigning it to improve the emp
 - Warehouse (`building_warehouse`)
 - Creature Habitat (`building_creature_habitat`)
 - Workbench (`building_workbench`)
+
+## First session
+
+1. Spawn on your own plot with a Rockhorn.
+2. Travel to the Wilds; chop trees and break rocks for Wood and Stone.
+3. Build a Mine and assign the Rockhorn: Copper Ore and Stone start flowing.
+4. Capture a Timberpaw, Mossling and Embercub to staff a Lumber Mill, Farm and Furnace.
+5. Smelt Copper Bars, build a Habitat for more creatures and a Workbench to unlock upgrades.
+6. Capture a Voltfox for the Generator; Energy unlocks level 3 upgrades.
+7. Expand storage with Warehouses and keep upgrading and capturing.
+
+The objective tracker walks new players through this path with coin rewards; see `ECONOMY.md` for numbers.
 
 ## MVP boundaries
 

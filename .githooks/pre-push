@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Blocks a push when any CI check fails. Enable once per clone with:
+#   git config core.hooksPath .githooks
+# Skip for a single push with: git push --no-verify
+exec "$(git rev-parse --show-toplevel)/scripts/validate.sh"

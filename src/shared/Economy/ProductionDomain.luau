@@ -1,9 +1,14 @@
+local GameConfig = require("../Config/GameConfig")
 local BuildingDefinitions = require("../Buildings/BuildingDefinitions")
 local CreatureDefinitions = require("../Creatures/CreatureDefinitions")
-local ItemDefinitions = require("../Items/ItemDefinitions")
-local GameConfig = require("../Config/GameConfig")
+local CreatureProgression = require("../Creatures/CreatureProgression")
+local CapacityDomain = require("./CapacityDomain")
 local InventoryDomain = require("./InventoryDomain")
 local ProductionMath = require("./ProductionMath")
+local NumberUtil = require("../Util/NumberUtil")
+local TableUtil = require("../Util/TableUtil")
+
+local EPSILON = 1e-9
 
 local function ok(value: any)
     return { ok = true, value = value }
@@ -13,249 +18,264 @@ local function err(code: string, message: string)
     return { ok = false, code = code, message = message }
 end
 
-local function isFiniteNumber(value: any): boolean
-    return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
+local function levelMultiplier(level: number): number
+    local clamped = math.clamp(level, 1, GameConfig.MAX_BUILDING_LEVEL)
+    return 1 + (clamped - 1) * GameConfig.BUILDING_LEVEL_OUTPUT_BONUS
 end
 
-local function isNonNegativeInteger(value: any): boolean
-    return isFiniteNumber(value) and value >= 0 and value % 1 == 0
+local function isProductionDefinition(definition: any): boolean
+    return definition ~= nil
+        and definition.kind == "production"
+        and type(definition.workType) == "string"
+        and NumberUtil.isFiniteNumber(definition.cyclesPerMinute)
+        and type(definition.outputs) == "table"
 end
 
-local function isPositiveInteger(value: any): boolean
-    return isNonNegativeInteger(value) and value > 0
-end
-
-local function denseStringArrayLength(value: any): number?
-    if type(value) ~= "table" then
-        return nil
+-- Sum of the affinity-weighted contribution of every consistently assigned worker.
+local function workerMultiplier(profile: any, building: any, workType: string): number
+    local total = 0
+    if type(building.assignedCreatureIds) ~= "table" then
+        return total
     end
 
-    local count = 0
-    for key, item in pairs(value) do
-        if
-            type(key) ~= "number"
-            or key < 1
-            or key % 1 ~= 0
-            or type(item) ~= "string"
-            or item == ""
-        then
-            return nil
-        end
-        count += 1
-    end
-
-    for index = 1, count do
-        if type(value[index]) ~= "string" or value[index] == "" then
-            return nil
+    for _, creatureId in ipairs(building.assignedCreatureIds) do
+        local creature = profile.creatures[creatureId]
+        if type(creature) == "table" and creature.assignedBuildingId == building.id then
+            local species = CreatureDefinitions.ById[creature.speciesId]
+            local affinity = if species ~= nil then species.workAffinity[workType] else nil
+            if NumberUtil.isFiniteNumber(affinity) and affinity > 0 then
+                total += affinity * CreatureProgression.outputMultiplier(creature.level)
+            end
         end
     end
 
-    return count
+    return total
 end
 
-local function inventoryBalance(inventory: any, itemId: string): number?
-    local value = inventory[itemId]
-    if value == nil then
+local function cyclesPerMinute(profile: any, building: any): number
+    if
+        type(profile) ~= "table"
+        or type(profile.creatures) ~= "table"
+        or type(building) ~= "table"
+    then
         return 0
     end
-    if not isNonNegativeInteger(value) then
-        return nil
+
+    local definition = BuildingDefinitions.ById[building.definitionId]
+    if
+        not isProductionDefinition(definition) or not NumberUtil.isPositiveInteger(building.level)
+    then
+        return 0
     end
-    return value
+
+    return definition.cyclesPerMinute
+        * levelMultiplier(building.level)
+        * workerMultiplier(profile, building, definition.workType)
 end
 
-local function preview(profile: any, buildingInstanceId: any, now: any)
+local function emptySettlement(buildingId: string)
+    return {
+        buildingId = buildingId,
+        cycles = 0,
+        produced = {},
+        consumed = {},
+        limitedBy = nil :: string?,
+    }
+end
+
+-- Settles elapsed production for one building at its current rate.
+--
+-- Time is only consumed for whole cycles actually produced, so frequent claims never lose
+-- fractional progress. Elapsed time beyond the offline cap is discarded. When output is
+-- limited by missing inputs or full storage, or the building has no workers, the building
+-- is idle and its clock resets to `now` instead of banking time.
+local function settle(profile: any, buildingId: any, now: number)
     if
         type(profile) ~= "table"
         or type(profile.buildings) ~= "table"
         or type(profile.creatures) ~= "table"
         or type(profile.inventory) ~= "table"
-        or type(buildingInstanceId) ~= "string"
-        or buildingInstanceId == ""
-        or not isNonNegativeInteger(now)
+        or type(buildingId) ~= "string"
     then
-        return err("invalid_request", "production request is invalid")
+        return err("invalid_request", "settlement request is invalid")
     end
 
-    local building = profile.buildings[buildingInstanceId]
-    if building == nil then
+    if not NumberUtil.isNonNegativeInteger(now) then
+        return err("invalid_request", "settlement time is invalid")
+    end
+
+    local building = profile.buildings[buildingId]
+    if type(building) ~= "table" or building.id ~= buildingId then
         return err("building_not_owned", "building is not owned by this profile")
     end
-    if type(building) ~= "table" or building.id ~= buildingInstanceId then
-        return err("invalid_request", "owned building record is invalid")
+
+    local definition = BuildingDefinitions.ById[building.definitionId]
+    if definition == nil then
+        return err("invalid_request", "owned building definition is invalid")
     end
 
-    local definitionId = building.definitionId
-    local definition = if type(definitionId) == "string"
-        then BuildingDefinitions.ById[definitionId]
-        else nil
-    if definition == nil or definition.kind ~= "production" then
-        return err("invalid_request", "building is not a valid production building")
+    local settlement = emptySettlement(buildingId)
+    if not isProductionDefinition(definition) then
+        return ok(settlement)
     end
 
-    if not isFiniteNumber(definition.baseRatePerMinute) or definition.baseRatePerMinute <= 0 then
-        return err("invalid_request", "building production rate is invalid")
-    end
-    if
-        type(definition.outputItemId) ~= "string"
-        or ItemDefinitions.ById[definition.outputItemId] == nil
-    then
-        return err("invalid_request", "building output item is invalid")
-    end
-    if type(definition.workType) ~= "string" or definition.workType == "" then
-        return err("invalid_request", "building work type is invalid")
-    end
-    if type(definition.levelMultipliers) ~= "table" or not isPositiveInteger(building.level) then
-        return err("invalid_request", "building production level is invalid")
+    local lastClaimedAt = building.lastClaimedAt
+    if not NumberUtil.isNonNegativeInteger(lastClaimedAt) or lastClaimedAt > now then
+        building.lastClaimedAt = now
+        return ok(settlement)
     end
 
-    local buildingMultiplier = definition.levelMultipliers[building.level]
-    if not isFiniteNumber(buildingMultiplier) or buildingMultiplier <= 0 then
-        return err("invalid_request", "building level multiplier is invalid")
-    end
-    if not isNonNegativeInteger(building.lastClaimedAt) or now < building.lastClaimedAt then
-        return err("invalid_request", "production timestamp is invalid")
+    local rate = cyclesPerMinute(profile, building)
+    if rate <= 0 then
+        building.lastClaimedAt = now
+        return ok(settlement)
     end
 
-    local workerCount = denseStringArrayLength(building.assignedCreatureIds)
-    if workerCount == nil then
-        return err("invalid_request", "building worker list is invalid")
-    end
-    if not isNonNegativeInteger(definition.maxWorkers) or workerCount > definition.maxWorkers then
-        return err("invalid_request", "building worker capacity state is invalid")
-    end
-
-    local seen = {}
-    local workerMultiplier = 0
-    for index = 1, workerCount do
-        local workerId = building.assignedCreatureIds[index]
-        if seen[workerId] then
-            return err("invalid_request", "building worker list contains duplicate ids")
-        end
-        seen[workerId] = true
-
-        local worker = profile.creatures[workerId]
-        if type(worker) ~= "table" or worker.id ~= workerId then
-            return err("invalid_request", "building references an invalid owned creature")
-        end
-        if worker.assignedBuildingId ~= buildingInstanceId then
-            return err("invalid_request", "building worker relationship is inconsistent")
-        end
-
-        local speciesId = worker.speciesId
-        local species = if type(speciesId) == "string"
-            then CreatureDefinitions.ById[speciesId]
-            else nil
-        if species == nil or type(species.workAffinity) ~= "table" then
-            return err("invalid_request", "building worker species is invalid")
-        end
-
-        local affinity = species.workAffinity[definition.workType]
-        if not isFiniteNumber(affinity) or affinity <= 0 then
-            return err("invalid_request", "building worker affinity is invalid")
-        end
-        workerMultiplier += affinity
-    end
-
-    local elapsedSeconds = now - building.lastClaimedAt
-    local clampedElapsedSeconds = ProductionMath.clampElapsedSeconds(
-        elapsedSeconds,
+    local elapsed = ProductionMath.clampElapsedSeconds(
+        now - lastClaimedAt,
         GameConfig.OFFLINE_PRODUCTION_CAP_SECONDS
     )
-    local rawOutput = ProductionMath.calculateOutput(
-        definition.baseRatePerMinute,
-        buildingMultiplier,
-        workerMultiplier,
-        1,
-        clampedElapsedSeconds
-    )
+    local cycles = ProductionMath.calculateOutput(rate, 1, 1, 1, elapsed)
+    local limitedBy: string? = nil
 
-    local inputItemId = nil
-    local inputQuantity = 0
-    local outputQuantity = rawOutput
-    if definition.inputItemId ~= nil or definition.inputPerOutput ~= nil then
-        if
-            type(definition.inputItemId) ~= "string"
-            or ItemDefinitions.ById[definition.inputItemId] == nil
-            or not isPositiveInteger(definition.inputPerOutput)
-        then
-            return err("invalid_request", "building production input is invalid")
+    for itemId, perCycle in pairs(definition.inputs) do
+        local balance = profile.inventory[itemId]
+        local available = if NumberUtil.isNonNegativeInteger(balance) then balance else 0
+        local maxCycles = math.floor(available / perCycle)
+        if maxCycles < cycles then
+            cycles = maxCycles
+            limitedBy = "input"
         end
-
-        local availableInput = inventoryBalance(profile.inventory, definition.inputItemId)
-        if availableInput == nil then
-            return err("invalid_request", "production input balance is invalid")
-        end
-
-        local inputLimitedOutput = math.floor(availableInput / definition.inputPerOutput)
-        outputQuantity = math.min(rawOutput, inputLimitedOutput)
-        inputItemId = definition.inputItemId
-        inputQuantity = outputQuantity * definition.inputPerOutput
     end
 
-    return ok({
-        outputItemId = definition.outputItemId,
-        outputQuantity = outputQuantity,
-        inputItemId = inputItemId,
-        inputQuantity = inputQuantity,
-        elapsedSeconds = elapsedSeconds,
-        clampedElapsedSeconds = clampedElapsedSeconds,
-    })
+    for itemId, perCycle in pairs(definition.outputs) do
+        local maxCycles = math.floor(CapacityDomain.storageSpace(profile, itemId) / perCycle)
+        if maxCycles < cycles then
+            cycles = maxCycles
+            limitedBy = "storage"
+        end
+    end
+
+    if limitedBy ~= nil then
+        building.lastClaimedAt = now
+    else
+        local ratePerSecond = rate / 60
+        local consumedSeconds = math.min(elapsed, math.ceil(cycles / ratePerSecond - EPSILON))
+        building.lastClaimedAt = now - (elapsed - consumedSeconds)
+    end
+
+    settlement.limitedBy = limitedBy
+    if cycles <= 0 then
+        return ok(settlement)
+    end
+
+    for _, itemId in ipairs(TableUtil.sortedKeys(definition.inputs)) do
+        local quantity = definition.inputs[itemId] * cycles
+        local removed = InventoryDomain.remove(profile, itemId, quantity)
+        if removed.ok ~= true then
+            return removed
+        end
+        settlement.consumed[itemId] = quantity
+    end
+
+    for _, itemId in ipairs(TableUtil.sortedKeys(definition.outputs)) do
+        local quantity = definition.outputs[itemId] * cycles
+        local added = InventoryDomain.add(profile, itemId, quantity)
+        if added.ok ~= true then
+            return added
+        end
+        settlement.produced[itemId] = quantity
+    end
+
+    for _, creatureId in ipairs(building.assignedCreatureIds) do
+        local creature = profile.creatures[creatureId]
+        if type(creature) == "table" and creature.assignedBuildingId == buildingId then
+            CreatureProgression.addExperience(creature, cycles)
+        end
+    end
+
+    settlement.cycles = cycles
+    return ok(settlement)
 end
 
-local function applyPreview(
-    profile: any,
-    buildingInstanceId: string,
-    now: number,
-    allowZero: boolean
-)
-    local result = preview(profile, buildingInstanceId, now)
-    if result.ok ~= true then
-        return result
+local function hasInputs(definition: any): boolean
+    return definition ~= nil
+        and type(definition.inputs) == "table"
+        and next(definition.inputs) ~= nil
+end
+
+-- Settles every production building. Extractors settle before processors so freshly
+-- mined ore is available to furnaces in the same claim.
+local function claimAll(profile: any, now: number)
+    if type(profile) ~= "table" or type(profile.buildings) ~= "table" then
+        return err("invalid_request", "profile buildings are invalid")
     end
 
-    local value = result.value
-    if value.outputQuantity <= 0 then
-        if not allowZero then
-            return err("nothing_to_claim", "production has no whole-unit output to claim")
+    local extractors = {}
+    local processors = {}
+    for _, buildingId in ipairs(TableUtil.sortedKeys(profile.buildings)) do
+        local building = profile.buildings[buildingId]
+        local definition = if type(building) == "table"
+            then BuildingDefinitions.ById[building.definitionId]
+            else nil
+        if isProductionDefinition(definition) then
+            if hasInputs(definition) then
+                table.insert(processors, buildingId)
+            else
+                table.insert(extractors, buildingId)
+            end
         end
-        profile.buildings[buildingInstanceId].lastClaimedAt = now
-        return result
     end
 
-    local removals = {}
-    if value.inputItemId ~= nil then
-        removals[value.inputItemId] = value.inputQuantity
-    end
-    local additions = {
-        [value.outputItemId] = value.outputQuantity,
+    local summary = {
+        buildings = 0,
+        cycles = 0,
+        produced = {},
+        consumed = {},
+        storageLimited = false,
+        inputLimited = false,
     }
 
-    local transaction = InventoryDomain.applyTransaction(profile, removals, additions)
-    if transaction.ok ~= true then
-        return transaction
+    local function settleEach(buildingIds: { string })
+        for _, buildingId in ipairs(buildingIds) do
+            local result = settle(profile, buildingId, now)
+            if result.ok ~= true then
+                return result
+            end
+
+            local settlement = result.value
+            summary.buildings += 1
+            summary.cycles += settlement.cycles
+            for itemId, quantity in pairs(settlement.produced) do
+                summary.produced[itemId] = (summary.produced[itemId] or 0) + quantity
+            end
+            for itemId, quantity in pairs(settlement.consumed) do
+                summary.consumed[itemId] = (summary.consumed[itemId] or 0) + quantity
+            end
+            if settlement.limitedBy == "storage" then
+                summary.storageLimited = true
+            elseif settlement.limitedBy == "input" then
+                summary.inputLimited = true
+            end
+        end
+        return nil
     end
 
-    profile.buildings[buildingInstanceId].lastClaimedAt = now
-    return result
-end
-
-local function claim(profile: any, buildingInstanceId: any, now: any)
-    if type(buildingInstanceId) ~= "string" or not isNonNegativeInteger(now) then
-        return err("invalid_request", "production claim request is invalid")
+    local failure = settleEach(extractors) or settleEach(processors)
+    if failure ~= nil then
+        return failure
     end
-    return applyPreview(profile, buildingInstanceId, now, false)
-end
 
-local function settle(profile: any, buildingInstanceId: any, now: any)
-    if type(buildingInstanceId) ~= "string" or not isNonNegativeInteger(now) then
-        return err("invalid_request", "production settlement request is invalid")
+    if summary.buildings == 0 then
+        return err("nothing_to_claim", "you have no production buildings")
     end
-    return applyPreview(profile, buildingInstanceId, now, true)
+
+    return ok(summary)
 end
 
 return table.freeze({
-    preview = preview,
-    claim = claim,
+    levelMultiplier = levelMultiplier,
+    cyclesPerMinute = cyclesPerMinute,
     settle = settle,
+    claimAll = claimAll,
 })

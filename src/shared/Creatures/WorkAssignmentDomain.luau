@@ -1,5 +1,6 @@
 local CreatureDefinitions = require("./CreatureDefinitions")
 local BuildingDefinitions = require("../Buildings/BuildingDefinitions")
+local ProductionDomain = require("../Economy/ProductionDomain")
 
 local function ok(value: any)
     return { ok = true, value = value }
@@ -196,6 +197,73 @@ local function validate(profile: any, creatureInstanceId: any, buildingInstanceI
     return ok(true)
 end
 
+-- Performs the two-sided worker assignment. Production earned at the building's previous
+-- worker rate is settled before the new worker joins.
+local function assign(profile: any, creatureInstanceId: any, buildingInstanceId: any, now: number)
+    local eligible = validate(profile, creatureInstanceId, buildingInstanceId)
+    if eligible.ok ~= true then
+        return eligible
+    end
+
+    local settled = ProductionDomain.settle(profile, buildingInstanceId, now)
+    if settled.ok ~= true then
+        return settled
+    end
+
+    local creature = profile.creatures[creatureInstanceId]
+    local building = profile.buildings[buildingInstanceId]
+    table.insert(building.assignedCreatureIds, creatureInstanceId)
+    creature.assignedBuildingId = buildingInstanceId
+
+    return ok({ creatureId = creatureInstanceId, buildingId = buildingInstanceId })
+end
+
+-- Removes a creature from its building. A dangling assignment to a building the profile no
+-- longer owns is cleared without settlement.
+local function unassign(profile: any, creatureInstanceId: any, now: number)
+    if
+        type(profile) ~= "table"
+        or type(profile.creatures) ~= "table"
+        or type(profile.buildings) ~= "table"
+        or type(creatureInstanceId) ~= "string"
+    then
+        return err("invalid_request", "unassignment request is invalid")
+    end
+
+    local creature = profile.creatures[creatureInstanceId]
+    if type(creature) ~= "table" then
+        return err("creature_not_owned", "creature is not owned by this profile")
+    end
+
+    local buildingId = creature.assignedBuildingId
+    if buildingId == nil then
+        return err("creature_not_assigned", "creature is not assigned to a building")
+    end
+
+    local building = profile.buildings[buildingId]
+    if type(building) == "table" then
+        local settled = ProductionDomain.settle(profile, buildingId, now)
+        if settled.ok ~= true then
+            return settled
+        end
+
+        local remaining = {}
+        if type(building.assignedCreatureIds) == "table" then
+            for _, workerId in ipairs(building.assignedCreatureIds) do
+                if workerId ~= creatureInstanceId then
+                    table.insert(remaining, workerId)
+                end
+            end
+        end
+        building.assignedCreatureIds = remaining
+    end
+
+    creature.assignedBuildingId = nil
+    return ok({ creatureId = creatureInstanceId, buildingId = buildingId })
+end
+
 return table.freeze({
     validate = validate,
+    assign = assign,
+    unassign = unassign,
 })

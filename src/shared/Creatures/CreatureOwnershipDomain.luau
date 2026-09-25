@@ -1,4 +1,5 @@
 local CreatureDefinitions = require("./CreatureDefinitions")
+local CapacityDomain = require("../Economy/CapacityDomain")
 
 local STARTER_SPECIES_ID = "creature_rockhorn"
 local STARTER_UNLOCK_ID = "starter_creature_granted"
@@ -74,7 +75,39 @@ local function capture(profile: any, speciesId: any, eligible: any, generateId: 
         return err("capture_not_eligible", "capture is not currently eligible")
     end
 
+    if type(profile) == "table" and not CapacityDomain.hasCreatureSpace(profile) then
+        return err("creature_capacity_full", "your habitats are full")
+    end
+
     return createOwnedInstance(profile, speciesId, generateId)
+end
+
+-- Releases an idle creature back to the wild. The last owned creature cannot be released so
+-- a profile can always keep working.
+local function release(profile: any, creatureInstanceId: any)
+    if
+        type(profile) ~= "table"
+        or type(profile.creatures) ~= "table"
+        or type(creatureInstanceId) ~= "string"
+    then
+        return err("invalid_request", "release request is invalid")
+    end
+
+    local creature = profile.creatures[creatureInstanceId]
+    if type(creature) ~= "table" then
+        return err("creature_not_owned", "creature is not owned by this profile")
+    end
+
+    if creature.assignedBuildingId ~= nil then
+        return err("creature_already_assigned", "unassign the creature before releasing it")
+    end
+
+    if CapacityDomain.creatureCount(profile) <= 1 then
+        return err("invalid_request", "you cannot release your last creature")
+    end
+
+    profile.creatures[creatureInstanceId] = nil
+    return ok(creature)
 end
 
 return table.freeze({
@@ -82,4 +115,5 @@ return table.freeze({
     STARTER_UNLOCK_ID = STARTER_UNLOCK_ID,
     grantStarter = grantStarter,
     capture = capture,
+    release = release,
 })

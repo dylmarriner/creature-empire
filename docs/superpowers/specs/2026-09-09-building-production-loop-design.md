@@ -1,5 +1,7 @@
 # Building and Production Loop Design
 
+> **Superseded.** This Phase 4 design was merged in PR #3 alongside a parallel implementation in PR #4. The two implemented the same rules with incompatible data shapes; PR #4's implementation (grid-cell placement, recipe-cycle production, five upgrade levels) was kept because the server, client and integration tests depend on it. See `docs/superpowers/plans/2026-09-24-production-loop-and-vertical-slice.md`. `InventoryDomain.applyTransaction` from this design remains in use.
+
 ## Status
 
 Approved Phase 4 implementation design derived from the approved foundation specification and the user instruction to continue implementation after merging Phase 3.

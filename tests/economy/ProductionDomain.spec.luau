@@ -1,149 +1,189 @@
-local ProfileSchema = require("../../src/shared/Profiles/ProfileSchema")
+local Expect = require("../support/Expect")
+local Fixtures = require("../support/Fixtures")
 local ProductionDomain = require("../../src/shared/Economy/ProductionDomain")
 
-local function expectEqual(actual: any, expected: any, label: string)
-    if actual ~= expected then
-        error(`{label}: expected {expected}, got {actual}`)
-    end
-end
-
-local function expectOk(result: any, label: string)
-    if result.ok ~= true then
-        error(`{label}: expected ok result, got {result.code}`)
-    end
-end
-
-local function expectErrorCode(result: any, code: string, label: string)
-    if result.ok ~= false then
-        error(`{label}: expected error result`)
-    end
-    expectEqual(result.code, code, label)
-end
-
-local function addCreature(profile: any, id: string, speciesId: string, buildingId: string)
-    profile.creatures[id] = {
-        id = id,
-        speciesId = speciesId,
-        level = 1,
-        experience = 0,
-        traits = {},
-        mutationId = nil,
-        assignedBuildingId = buildingId,
-    }
-end
-
-local function addBuilding(
-    profile: any,
-    id: string,
-    definitionId: string,
-    level: number,
-    workers: { string },
-    lastClaimedAt: number
-)
-    profile.buildings[id] = {
-        id = id,
-        definitionId = definitionId,
-        level = level,
-        position = { x = 0, y = 0, z = 0 },
-        rotation = 0,
-        assignedCreatureIds = workers,
-        lastClaimedAt = lastClaimedAt,
-    }
-end
-
-local function miningProfile(workerCount: number?, level: number?)
-    local profile = ProfileSchema.createDefault(100)
-    local workers = {}
-    for index = 1, workerCount or 1 do
-        local id = `rockhorn_{index}`
-        addCreature(profile, id, "creature_rockhorn", "mine_1")
-        table.insert(workers, id)
-    end
-    addBuilding(profile, "mine_1", "building_mine", level or 1, workers, 100)
+local function staffedMine(now: number?)
+    local profile = Fixtures.profile()
+    Fixtures.addCreature(profile, "rockhorn_1", "creature_rockhorn")
+    Fixtures.addStaffedBuilding(profile, "mine_1", "building_mine", { "rockhorn_1" }, {
+        lastClaimedAt = now or 1000,
+    })
     return profile
 end
 
 local function run()
-    local profile = miningProfile(1, 1)
-    local preview = ProductionDomain.preview(profile, "mine_1", 220)
-    expectOk(preview, "Mine preview")
-    expectEqual(preview.value.outputItemId, "item_copper_ore", "Mine output item")
-    expectEqual(preview.value.outputQuantity, 15, "Mine Rockhorn output")
-    expectEqual(preview.value.elapsedSeconds, 120, "Mine elapsed")
-    expectEqual(preview.value.clampedElapsedSeconds, 120, "Mine clamped elapsed")
+    -- Rate: 6 cycles/min x level 1 x Rockhorn 1.25 = 7.5 cycles/min.
+    local profile = staffedMine()
+    Expect.near(
+        ProductionDomain.cyclesPerMinute(profile, profile.buildings.mine_1),
+        7.5,
+        1e-9,
+        "staffed mine rate"
+    )
 
-    local claimed = ProductionDomain.claim(profile, "mine_1", 220)
-    expectOk(claimed, "Mine claim")
-    expectEqual(profile.inventory.item_copper_ore, 15, "Mine claim inventory")
-    expectEqual(profile.buildings.mine_1.lastClaimedAt, 220, "Mine claim timestamp")
+    local settled = Expect.ok(ProductionDomain.settle(profile, "mine_1", 1060), "settle one minute")
+    Expect.equal(settled.cycles, 7, "whole cycles in one minute")
+    Expect.equal(profile.inventory.item_copper_ore, 7, "ore produced")
+    Expect.equal(profile.inventory.item_stone, 7, "stone produced")
+    Expect.equal(settled.limitedBy, nil, "not limited")
+    -- 7 cycles take 56 seconds; the remaining 4 seconds of progress carry over.
+    Expect.equal(profile.buildings.mine_1.lastClaimedAt, 1056, "fractional progress carried")
+    Expect.equal(profile.creatures.rockhorn_1.experience, 7, "worker gains experience per cycle")
 
-    local twoWorkers = miningProfile(2, 1)
-    local twoWorkerPreview = ProductionDomain.preview(twoWorkers, "mine_1", 220)
-    expectOk(twoWorkerPreview, "two Rockhorn preview")
-    expectEqual(twoWorkerPreview.value.outputQuantity, 30, "affinity sum output")
+    local second =
+        Expect.ok(ProductionDomain.settle(profile, "mine_1", 1064), "settle carried time")
+    Expect.equal(second.cycles, 1, "carried progress completes a cycle")
+    Expect.equal(profile.buildings.mine_1.lastClaimedAt, 1064, "clock advanced to cycle boundary")
 
-    local zeroWorkers = miningProfile(0, 1)
-    zeroWorkers.buildings.mine_1.assignedCreatureIds = {}
-    local noWork = ProductionDomain.claim(zeroWorkers, "mine_1", 220)
-    expectErrorCode(noWork, "nothing_to_claim", "zero workers claim rejected")
-    expectEqual(zeroWorkers.buildings.mine_1.lastClaimedAt, 100, "zero claim preserves timestamp")
+    local tooSoon = Expect.ok(ProductionDomain.settle(profile, "mine_1", 1065), "settle too soon")
+    Expect.equal(tooSoon.cycles, 0, "no cycle completes in one second")
+    Expect.equal(profile.buildings.mine_1.lastClaimedAt, 1064, "unfinished progress is kept")
 
-    local negativeClock = ProductionDomain.preview(miningProfile(1, 1), "mine_1", 99)
-    expectErrorCode(negativeClock, "invalid_request", "negative clock delta rejected")
+    -- Frequent claims never produce more than one long claim.
+    local frequent = staffedMine()
+    for now = 1005, 1600, 5 do
+        Expect.ok(ProductionDomain.settle(frequent, "mine_1", now), "frequent claim")
+    end
+    local single = staffedMine()
+    Expect.ok(ProductionDomain.settle(single, "mine_1", 1600), "single claim")
+    Expect.truthy(
+        frequent.inventory.item_copper_ore <= single.inventory.item_copper_ore,
+        "frequent claims cannot out-produce a single claim"
+    )
+    Expect.truthy(
+        single.inventory.item_copper_ore - frequent.inventory.item_copper_ore <= 1,
+        "frequent claims lose at most one cycle"
+    )
 
-    local offline = ProductionDomain.preview(miningProfile(1, 1), "mine_1", 100 + 12 * 60 * 60)
-    expectOk(offline, "offline cap preview")
-    expectEqual(offline.value.clampedElapsedSeconds, 8 * 60 * 60, "offline time capped")
-    expectEqual(offline.value.outputQuantity, 3600, "offline capped output")
+    -- Idle buildings do not bank time.
+    local idle = Fixtures.profile()
+    Fixtures.addBuilding(idle, "mine_1", "building_mine", { lastClaimedAt = 1000 })
+    local idleSettled = Expect.ok(ProductionDomain.settle(idle, "mine_1", 5000), "idle settle")
+    Expect.equal(idleSettled.cycles, 0, "idle building produces nothing")
+    Expect.equal(idle.buildings.mine_1.lastClaimedAt, 5000, "idle clock resets")
 
-    local levelTwo = ProductionDomain.preview(miningProfile(1, 2), "mine_1", 220)
-    expectOk(levelTwo, "level two preview")
-    expectEqual(levelTwo.value.outputQuantity, 18, "level multiplier output")
+    -- Storage limits output and discards the remaining time.
+    local offline = staffedMine()
+    local capped =
+        Expect.ok(ProductionDomain.settle(offline, "mine_1", 1000 + 12 * 3600), "long offline")
+    Expect.equal(capped.limitedBy, "storage", "long offline limited by storage")
+    Expect.equal(offline.inventory.item_copper_ore, 200, "ore capped at storage")
+    Expect.equal(offline.inventory.item_stone, 200, "stone capped at storage")
+    Expect.equal(offline.buildings.mine_1.lastClaimedAt, 1000 + 12 * 3600, "limited clock resets")
 
-    local furnace = ProfileSchema.createDefault(100)
-    furnace.inventory.item_copper_ore = 50
-    addCreature(furnace, "ember_1", "creature_embercub", "furnace_1")
-    addBuilding(furnace, "furnace_1", "building_furnace", 1, { "ember_1" }, 100)
-    local furnaceClaim = ProductionDomain.claim(furnace, "furnace_1", 220)
-    expectOk(furnaceClaim, "Furnace claim")
-    expectEqual(furnaceClaim.value.outputQuantity, 10, "Furnace output")
-    expectEqual(furnaceClaim.value.inputQuantity, 10, "Furnace input quantity")
-    expectEqual(furnace.inventory.item_copper_ore, 40, "Furnace consumes ore")
-    expectEqual(furnace.inventory.item_copper_bar, 10, "Furnace creates bars")
-    expectEqual(furnace.buildings.furnace_1.lastClaimedAt, 220, "Furnace claim timestamp")
+    -- Offline time beyond eight hours is discarded when storage is large enough.
+    local generator = Fixtures.profile()
+    Fixtures.addCreature(generator, "voltfox_1", "creature_voltfox")
+    Fixtures.addStaffedBuilding(generator, "generator_1", "building_generator", { "voltfox_1" })
+    Fixtures.addBuilding(generator, "warehouse_1", "building_warehouse", { x = 10, level = 5 })
+    Fixtures.addBuilding(generator, "warehouse_2", "building_warehouse", { x = 20, level = 5 })
+    local capSettled = Expect.ok(
+        ProductionDomain.settle(generator, "generator_1", 1000 + 12 * 3600),
+        "generator offline"
+    )
+    -- 5 x 1.25 = 6.25 cycles/min for 480 capped minutes.
+    Expect.equal(capSettled.cycles, 3000, "offline production capped at eight hours")
+    Expect.equal(capSettled.limitedBy, nil, "offline cap is not a storage limit")
+    Expect.equal(generator.inventory.item_energy, 3000, "energy produced")
 
-    local inputLimited = ProfileSchema.createDefault(100)
-    inputLimited.inventory.item_copper_ore = 3
-    addCreature(inputLimited, "ember_1", "creature_embercub", "furnace_1")
-    addBuilding(inputLimited, "furnace_1", "building_furnace", 1, { "ember_1" }, 100)
-    local limited = ProductionDomain.claim(inputLimited, "furnace_1", 220)
-    expectOk(limited, "input limited claim")
-    expectEqual(limited.value.outputQuantity, 3, "input limited output")
-    expectEqual(inputLimited.inventory.item_copper_ore, nil, "input limited ore consumed")
-    expectEqual(inputLimited.inventory.item_copper_bar, 3, "input limited bars created")
+    local shortOffline = Fixtures.profile()
+    Fixtures.addCreature(shortOffline, "voltfox_1", "creature_voltfox")
+    Fixtures.addStaffedBuilding(shortOffline, "generator_1", "building_generator", { "voltfox_1" })
+    Fixtures.addBuilding(shortOffline, "warehouse_1", "building_warehouse", { x = 10, level = 5 })
+    local short = Expect.ok(
+        ProductionDomain.settle(shortOffline, "generator_1", 1000 + 4 * 3600),
+        "four hours offline"
+    )
+    Expect.equal(short.cycles, 1500, "four hours of production")
 
-    local fractional = miningProfile(1, 1)
-    local fractionalClaim = ProductionDomain.claim(fractional, "mine_1", 103)
-    expectErrorCode(fractionalClaim, "nothing_to_claim", "fractional output not claimable")
-    expectEqual(fractional.buildings.mine_1.lastClaimedAt, 100, "fractional time preserved")
-    local settled = ProductionDomain.settle(fractional, "mine_1", 103)
-    expectOk(settled, "fractional settle")
-    expectEqual(settled.value.outputQuantity, 0, "fractional settle output")
-    expectEqual(fractional.buildings.mine_1.lastClaimedAt, 103, "settle advances timestamp")
+    -- Processing buildings are limited by their inputs.
+    local furnace = Fixtures.profile()
+    Fixtures.addCreature(furnace, "embercub_1", "creature_embercub")
+    Fixtures.addStaffedBuilding(furnace, "furnace_1", "building_furnace", { "embercub_1" })
+    furnace.inventory.item_copper_ore = 10
+    local smelted = Expect.ok(ProductionDomain.settle(furnace, "furnace_1", 1600), "smelt")
+    Expect.equal(smelted.cycles, 10, "smelting limited by ore")
+    Expect.equal(smelted.limitedBy, "input", "input limited")
+    Expect.equal(furnace.inventory.item_copper_ore, nil, "ore consumed")
+    Expect.equal(furnace.inventory.item_copper_bar, 10, "bars produced")
+    Expect.equal(furnace.buildings.furnace_1.lastClaimedAt, 1600, "input-limited clock resets")
 
-    local corruptRelationship = miningProfile(1, 1)
-    corruptRelationship.creatures.rockhorn_1.assignedBuildingId = "other_building"
-    local corrupt = ProductionDomain.preview(corruptRelationship, "mine_1", 220)
-    expectErrorCode(corrupt, "invalid_request", "corrupt worker relationship rejected")
+    -- claimAll settles extractors before processors.
+    local chain = Fixtures.profile()
+    Fixtures.addCreature(chain, "rockhorn_1", "creature_rockhorn")
+    Fixtures.addCreature(chain, "embercub_1", "creature_embercub")
+    Fixtures.addStaffedBuilding(chain, "a_furnace", "building_furnace", { "embercub_1" })
+    Fixtures.addStaffedBuilding(chain, "z_mine", "building_mine", { "rockhorn_1" }, { x = 10 })
+    local summary = Expect.ok(ProductionDomain.claimAll(chain, 1060), "claim all")
+    Expect.equal(summary.buildings, 2, "both buildings settled")
+    Expect.equal(summary.produced.item_copper_ore, 7, "mine produced ore")
+    Expect.equal(summary.produced.item_copper_bar, 5, "furnace used fresh ore")
+    Expect.equal(chain.inventory.item_copper_ore, 2, "remaining ore")
+    Expect.equal(chain.inventory.item_copper_bar, 5, "bars in inventory")
 
-    local unknownSpecies = miningProfile(1, 1)
-    unknownSpecies.creatures.rockhorn_1.speciesId = "creature_unknown"
-    local badSpecies = ProductionDomain.preview(unknownSpecies, "mine_1", 220)
-    expectErrorCode(badSpecies, "invalid_request", "unknown worker species rejected")
+    -- Level and worker multipliers.
+    local leveled = staffedMine()
+    leveled.buildings.mine_1.level = 3
+    Expect.near(
+        ProductionDomain.cyclesPerMinute(leveled, leveled.buildings.mine_1),
+        15,
+        1e-9,
+        "level 3 doubles output"
+    )
+    leveled.creatures.rockhorn_1.level = 5
+    Expect.near(
+        ProductionDomain.cyclesPerMinute(leveled, leveled.buildings.mine_1),
+        18,
+        1e-9,
+        "creature level bonus"
+    )
 
-    local invalidLevel = miningProfile(1, 4)
-    local badLevel = ProductionDomain.preview(invalidLevel, "mine_1", 220)
-    expectErrorCode(badLevel, "invalid_request", "invalid production level rejected")
+    local twoWorkers = staffedMine()
+    Fixtures.addCreature(twoWorkers, "rockhorn_2", "creature_rockhorn", "mine_1")
+    table.insert(twoWorkers.buildings.mine_1.assignedCreatureIds, "rockhorn_2")
+    Expect.near(
+        ProductionDomain.cyclesPerMinute(twoWorkers, twoWorkers.buildings.mine_1),
+        15,
+        1e-9,
+        "workers stack"
+    )
+
+    local inconsistent = staffedMine()
+    inconsistent.creatures.rockhorn_1.assignedBuildingId = "elsewhere"
+    Expect.equal(
+        ProductionDomain.cyclesPerMinute(inconsistent, inconsistent.buildings.mine_1),
+        0,
+        "one-sided assignment does not produce"
+    )
+
+    -- Clock skew never produces output.
+    local skewed = staffedMine(5000)
+    local skew = Expect.ok(ProductionDomain.settle(skewed, "mine_1", 4000), "future claim time")
+    Expect.equal(skew.cycles, 0, "future lastClaimedAt produces nothing")
+    Expect.equal(skewed.buildings.mine_1.lastClaimedAt, 4000, "future clock is corrected")
+
+    -- Utility buildings settle as a no-op.
+    local utility = Fixtures.profile()
+    Fixtures.addBuilding(utility, "warehouse_1", "building_warehouse")
+    local utilitySettled =
+        Expect.ok(ProductionDomain.settle(utility, "warehouse_1", 5000), "utility settle")
+    Expect.equal(utilitySettled.cycles, 0, "utility produces nothing")
+
+    Expect.errorCode(
+        ProductionDomain.settle(utility, "missing", 5000),
+        "building_not_owned",
+        "missing building"
+    )
+    Expect.errorCode(
+        ProductionDomain.settle(utility, "warehouse_1", -1),
+        "invalid_request",
+        "negative time"
+    )
+    Expect.errorCode(
+        ProductionDomain.claimAll(Fixtures.profile(), 5000),
+        "nothing_to_claim",
+        "no production buildings"
+    )
 end
 
 return run
