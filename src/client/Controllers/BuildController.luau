@@ -312,8 +312,8 @@ function BuildController._update(self: BuildController)
         hit == nil
         or localX < 0
         or localZ < 0
-        or localX > WorldLayout.PLOT_STUDS
-        or localZ > WorldLayout.PLOT_STUDS
+        or localX >= WorldLayout.PLOT_STUDS
+        or localZ >= WorldLayout.PLOT_STUDS
     then
         -- Pointing off the plot never places, even though the ghost stays at its last cell.
         self._valid = false

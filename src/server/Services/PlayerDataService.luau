@@ -235,9 +235,18 @@ function PlayerDataService._load(self: PlayerDataService, player: Player)
 
     -- A quick rejoin on this server must not read the record before the previous session's
     -- release save lands; this server's own lock would not make the load wait.
-    local waitDeadline = os.clock() + REJOIN_WAIT_SECONDS
-    while self._releasing[userId] ~= nil and os.clock() < waitDeadline do
-        task.wait(0.25)
+    if self._releasing[userId] ~= nil then
+        logger.info("waiting for previous session release before load", { userId = userId })
+        local waitDeadline = os.clock() + REJOIN_WAIT_SECONDS
+        while self._releasing[userId] ~= nil and os.clock() < waitDeadline do
+            task.wait(0.25)
+        end
+        if self._releasing[userId] ~= nil then
+            logger.warn(
+                "previous session release still running; loading anyway",
+                { userId = userId }
+            )
+        end
     end
 
     local status, profile, detail = self:_requireStore():load(key, userId)

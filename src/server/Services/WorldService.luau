@@ -178,10 +178,12 @@ function WorldService._randomWildsPoint(self: WorldService, margin: number): Vec
         )
         local onPath = math.abs(point.X - center.x) < PATH_CLEARANCE and point.Z > center.z
         if not onPath then
-            break
+            return point
         end
     end
-    return point
+    -- Every retry landed on the path: push the last point sideways off it.
+    local side = if point.X >= center.x then 1 else -1
+    return Vector3.new(center.x + side * PATH_CLEARANCE, 0, point.Z)
 end
 
 function WorldService._buildTerrain(self: WorldService)
