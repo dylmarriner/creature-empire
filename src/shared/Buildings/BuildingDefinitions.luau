@@ -9,6 +9,8 @@ local ids = table.freeze({
     "building_workbench",
 })
 
+local PRODUCTION_LEVEL_MULTIPLIERS = table.freeze({ 1.0, 1.25, 1.6 })
+
 local byId = {
     building_mine = {
         id = "building_mine",
@@ -19,6 +21,11 @@ local byId = {
         maxWorkers = 2,
         baseRatePerMinute = 6,
         outputItemId = "item_copper_ore",
+        levelMultipliers = PRODUCTION_LEVEL_MULTIPLIERS,
+        upgradeCosts = {
+            [2] = { item_stone = 40, item_copper_bar = 10 },
+            [3] = { item_stone = 80, item_copper_bar = 30 },
+        },
     },
     building_lumber_mill = {
         id = "building_lumber_mill",
@@ -29,6 +36,11 @@ local byId = {
         maxWorkers = 2,
         baseRatePerMinute = 8,
         outputItemId = "item_wood",
+        levelMultipliers = PRODUCTION_LEVEL_MULTIPLIERS,
+        upgradeCosts = {
+            [2] = { item_wood = 40, item_copper_bar = 10 },
+            [3] = { item_wood = 80, item_copper_bar = 30 },
+        },
     },
     building_farm = {
         id = "building_farm",
@@ -39,6 +51,11 @@ local byId = {
         maxWorkers = 2,
         baseRatePerMinute = 6,
         outputItemId = "item_food",
+        levelMultipliers = PRODUCTION_LEVEL_MULTIPLIERS,
+        upgradeCosts = {
+            [2] = { item_wood = 30, item_food = 20 },
+            [3] = { item_wood = 60, item_food = 50 },
+        },
     },
     building_furnace = {
         id = "building_furnace",
@@ -51,6 +68,11 @@ local byId = {
         outputItemId = "item_copper_bar",
         inputItemId = "item_copper_ore",
         inputPerOutput = 1,
+        levelMultipliers = PRODUCTION_LEVEL_MULTIPLIERS,
+        upgradeCosts = {
+            [2] = { item_stone = 60, item_copper_bar = 15 },
+            [3] = { item_stone = 120, item_copper_bar = 40 },
+        },
     },
     building_generator = {
         id = "building_generator",
@@ -61,6 +83,11 @@ local byId = {
         maxWorkers = 1,
         baseRatePerMinute = 5,
         outputItemId = "item_energy",
+        levelMultipliers = PRODUCTION_LEVEL_MULTIPLIERS,
+        upgradeCosts = {
+            [2] = { item_stone = 50, item_copper_bar = 20 },
+            [3] = { item_stone = 100, item_copper_bar = 50 },
+        },
     },
     building_warehouse = {
         id = "building_warehouse",

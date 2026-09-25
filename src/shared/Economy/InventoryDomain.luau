@@ -149,9 +149,59 @@ local function applyCost(profile: any, cost: any)
     return ok(true)
 end
 
+local function applyTransaction(profile: any, removals: any, additions: any)
+    if
+        type(profile) ~= "table"
+        or type(profile.inventory) ~= "table"
+        or not validateCost(removals)
+        or not validateCost(additions)
+    then
+        return err("invalid_request", "inventory transaction is invalid")
+    end
+
+    local touched = {}
+    for itemId in pairs(removals) do
+        touched[itemId] = true
+    end
+    for itemId in pairs(additions) do
+        touched[itemId] = true
+    end
+
+    local finalBalances = {}
+    for itemId in pairs(touched) do
+        local current, validBalance = getBalance(profile.inventory, itemId)
+        if not validBalance then
+            return err("invalid_request", "existing inventory balance is invalid")
+        end
+
+        local removal = removals[itemId] or 0
+        local addition = additions[itemId] or 0
+        if current < removal then
+            return err("insufficient_resources", "insufficient resources for transaction")
+        end
+
+        local nextBalance = current - removal + addition
+        if not isNonNegativeInteger(nextBalance) then
+            return err("invalid_request", "resulting inventory balance is invalid")
+        end
+        finalBalances[itemId] = nextBalance
+    end
+
+    for itemId, nextBalance in pairs(finalBalances) do
+        if nextBalance == 0 then
+            profile.inventory[itemId] = nil
+        else
+            profile.inventory[itemId] = nextBalance
+        end
+    end
+
+    return ok(true)
+end
+
 return table.freeze({
     add = add,
     remove = remove,
     canAfford = canAfford,
     applyCost = applyCost,
+    applyTransaction = applyTransaction,
 })
