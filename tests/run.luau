@@ -7,6 +7,10 @@ local specs = {
     { name = "economy/InventoryDomain", run = require("./economy/InventoryDomain.spec") },
     { name = "economy/CurrencyDomain", run = require("./economy/CurrencyDomain.spec") },
     { name = "economy/BuildingCostDomain", run = require("./economy/BuildingCostDomain.spec") },
+    {
+        name = "economy/InventoryTransactionDomain",
+        run = require("./economy/InventoryTransactionDomain.spec"),
+    },
     { name = "economy/ProductionDomain", run = require("./economy/ProductionDomain.spec") },
     { name = "economy/MarketAndCapacity", run = require("./economy/MarketAndCapacity.spec") },
     {

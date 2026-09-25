@@ -12,9 +12,13 @@ cd "$(dirname "$0")/.."
 
 if [ ! -f "${DEFINITIONS}" ]; then
     mkdir -p "${DEFINITIONS_DIR}"
+    # Download to a temporary file so a failed download never leaves a partial cache.
+    partial="$(mktemp "${DEFINITIONS_DIR}/download.XXXXXX")"
+    trap 'rm -f "${partial}"' EXIT
     curl --fail --silent --show-error --location \
         "https://raw.githubusercontent.com/JohnnyMorganz/luau-lsp/${LUAU_LSP_VERSION}/scripts/globalTypes.d.luau" \
-        --output "${DEFINITIONS}"
+        --output "${partial}"
+    mv "${partial}" "${DEFINITIONS}"
 fi
 
 rojo sourcemap default.project.json --output sourcemap.json

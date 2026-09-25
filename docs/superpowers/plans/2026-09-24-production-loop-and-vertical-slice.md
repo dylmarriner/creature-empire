@@ -30,3 +30,7 @@
 
 - `stylua --check src tests`, `selene src tests`, `./scripts/typecheck.sh`, `lune run tests/run`, `rojo build` all pass.
 - Remaining manual gate: the Studio/test-experience playtest checklist in `docs/OPERATIONS.md`.
+
+## Reconciliation with PR #3
+
+PR #3 (`feature/building-production-loop`) implemented Phase 4 in parallel as pure domains (`BuildingPlacementDomain`, `BuildingUpgradeDomain`, `WorkAssignmentMutationDomain`, and its own `ProductionDomain`) with stud-based placement around a centred plot, three upgrade levels and per-definition upgrade cost tables. When both were merged the implementations conflicted directly. This plan's implementation was kept because every runtime service, the client and the integration tests are built on it. From PR #3 the atomic `InventoryDomain.applyTransaction` (with its spec) and the added error codes were kept; its design and plan documents remain for history, marked superseded.

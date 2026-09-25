@@ -46,16 +46,30 @@ local function run(profile: any, mutate: (draft: any) -> any): PipelineOutcome
         }
     end
 
-    local completed = ObjectiveDomain.evaluate(draft)
-
-    local valid, reason = ProfileSchema.validate(draft)
-    if not valid then
+    -- Objective rewards and validation run inside the same error boundary as the mutation.
+    local evaluated, completedOrError = pcall(ObjectiveDomain.evaluate, draft)
+    if not evaluated then
         return {
             profile = profile,
             result = err("internal_error", "something went wrong; please try again"),
             committed = false,
             completedObjectives = {},
-            failure = `mutation produced an invalid profile: {reason}`,
+            failure = `objective evaluation failed: {tostring(completedOrError)}`,
+        }
+    end
+    local completed = completedOrError
+
+    local validated, valid, reason = pcall(ProfileSchema.validate, draft)
+    if not validated or not valid then
+        local detail = if validated
+            then `mutation produced an invalid profile: {reason}`
+            else `profile validation failed: {tostring(valid)}`
+        return {
+            profile = profile,
+            result = err("internal_error", "something went wrong; please try again"),
+            committed = false,
+            completedObjectives = {},
+            failure = detail,
         }
     end
 
