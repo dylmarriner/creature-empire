@@ -25,10 +25,10 @@ jobs:
         run: wally install
 
       - name: Check formatting
-        run: stylua --check src tests
+        run: stylua --check src tests scripts
 
       - name: Lint Luau
-        run: selene src tests
+        run: selene src tests scripts
 
       - name: Type-check against the Roblox API
         run: ./scripts/typecheck.sh
