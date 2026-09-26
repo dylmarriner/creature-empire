@@ -18,7 +18,13 @@ local Logger = require("./Logger")
 
 local logger = Logger.new("Actions")
 
-export type CommitListener = (player: Player, profile: any, completedObjectives: { string }) -> ()
+-- `previous` is the profile before the commit; listeners must treat both as read-only.
+export type CommitContext = {
+    label: string,
+    previous: any,
+    completedObjectives: { string },
+}
+export type CommitListener = (player: Player, profile: any, context: CommitContext) -> ()
 
 local ActionService = {}
 ActionService.__index = ActionService
@@ -92,8 +98,11 @@ function ActionService.mutate(
             })
         end
         for _, listener in ipairs(self._listeners) do
-            local ok, listenerError =
-                pcall(listener :: any, player, outcome.profile, outcome.completedObjectives)
+            local ok, listenerError = pcall(listener :: any, player, outcome.profile, {
+                label = label,
+                previous = profile,
+                completedObjectives = outcome.completedObjectives,
+            })
             if not ok then
                 logger.error(
                     "commit listener failed",

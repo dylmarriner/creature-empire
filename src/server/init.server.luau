@@ -9,6 +9,7 @@
         WorldService                   the Wilds: gathering nodes and wild creatures
 ]]
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -28,6 +29,8 @@ local ActionService = require("@self/Services/ActionService")
 local NetworkService = require("@self/Services/NetworkService")
 local PlotService = require("@self/Services/PlotService")
 local WorldService = require("@self/Services/WorldService")
+local LeaderboardService = require("@self/Services/LeaderboardService")
+local AnalyticsReporter = require("@self/Services/AnalyticsReporter")
 
 assert(
     #ItemDefinitions.Ids == GameConfig.INITIAL_RESOURCE_COUNT,
@@ -79,6 +82,7 @@ playerData = PlayerDataService.new({
         end
 
         local loaded = playerData:getProfile(player)
+        LeaderboardService.update(player, loaded)
         plotService:render(player, loaded)
         network:sendSnapshot(player, loaded)
         player:SetAttribute("ProfileLoaded", true)
@@ -95,20 +99,29 @@ network = NetworkService.new({
     playerData = playerData,
 })
 
-actionService:onCommitted(function(player: Player, profile: any, completedObjectives: { string })
-    plotService:render(player, profile)
-    network:sendSnapshot(player, profile)
-    for _, objectiveId in ipairs(completedObjectives) do
-        local objective = ObjectiveDefinitions.ById[objectiveId]
-        if objective ~= nil then
-            network:notify(
-                player,
-                "objective",
-                `Objective complete: {objective.title} (+{objective.rewardCoins} coins)`
-            )
+actionService:onCommitted(
+    function(player: Player, profile: any, context: ActionService.CommitContext)
+        plotService:render(player, profile)
+        network:sendSnapshot(player, profile)
+        LeaderboardService.update(player, profile)
+        AnalyticsReporter.reportCommit(
+            player,
+            context.previous,
+            profile,
+            context.completedObjectives
+        )
+        for _, objectiveId in ipairs(context.completedObjectives) do
+            local objective = ObjectiveDefinitions.ById[objectiveId]
+            if objective ~= nil then
+                network:notify(
+                    player,
+                    "objective",
+                    `Objective complete: {objective.title} (+{objective.rewardCoins} coins)`
+                )
+            end
         end
     end
-end)
+)
 
 network:setSessionHandler(ActionNames.Travel, function(player: Player, payload: any)
     if not playerData:isLoaded(player) then
@@ -117,6 +130,20 @@ network:setSessionHandler(ActionNames.Travel, function(player: Player, payload: 
 
     if payload.destination == "home" then
         if plotService:sendHome(player) then
+            return { ok = true }
+        end
+    elseif payload.destination == "plot" then
+        local host = if payload.targetUserId ~= nil
+            then Players:GetPlayerByUserId(payload.targetUserId)
+            else nil
+        if host == nil or host == player then
+            return {
+                ok = false,
+                code = "invalid_request",
+                message = "that empire isn't here right now",
+            }
+        end
+        if plotService:sendToPlotOf(player, host) then
             return { ok = true }
         end
     else
