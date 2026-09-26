@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local ActionNames = require(Shared.Net.ActionNames)
+local ProductionEstimate = require(Shared.Gameplay.ProductionEstimate)
 local RemoteNames = require(Shared.Net.RemoteNames)
 
 local StateController = require("@self/Controllers/StateController")
@@ -17,6 +18,7 @@ local BuildController = require("@self/Controllers/BuildController")
 local BuildingPanel = require("@self/Controllers/BuildingPanel")
 local CreaturePanel = require("@self/Controllers/CreaturePanel")
 local MarketPanel = require("@self/Controllers/MarketPanel")
+local VisitPanel = require("@self/Controllers/VisitPanel")
 local Format = require("@self/UI/Format")
 
 local remotes = ReplicatedStorage:WaitForChild("Remotes") :: Folder
@@ -47,6 +49,7 @@ local build = BuildController.new(hud, state, actions)
 local buildingPanel = BuildingPanel.new(hud, state, actions, build)
 local creaturePanel = CreaturePanel.new(hud, actions)
 local marketPanel = MarketPanel.new(hud, actions)
+local visitPanel = VisitPanel.new(hud, actions)
 
 hud:addAction("Build", 1, function()
     build:cancel()
@@ -78,9 +81,32 @@ end)
 hud:addAction("Wilds", 6, function()
     actions:send("Travel", { destination = "wilds" })
 end)
+hud:addAction("Visit", 7, function()
+    visitPanel:toggle()
+end)
 
+local welcomed = false
 state:onChanged(function(snapshot: any)
     hud:update(snapshot)
+    local cycles, readyBuildings = ProductionEstimate.summarize(snapshot, state:serverNow())
+    hud:setPending(cycles, readyBuildings)
+    if not welcomed then
+        welcomed = true
+        if cycles > 0 then
+            hud.toasts:show("gain", "Welcome back! Your workers kept busy - press Claim All.")
+        end
+    end
+end)
+
+-- Refresh the unclaimed-production estimate as time passes.
+task.spawn(function()
+    while true do
+        task.wait(1)
+        local snapshot = state:get()
+        if snapshot ~= nil then
+            hud:setPending(ProductionEstimate.summarize(snapshot, state:serverNow()))
+        end
+    end
 end)
 
 notifyRemote.OnClientEvent:Connect(function(message: any)

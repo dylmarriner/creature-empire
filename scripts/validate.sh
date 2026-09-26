@@ -10,10 +10,10 @@ step() {
 }
 
 step "Formatting (stylua)"
-stylua --check src tests
+stylua --check src tests scripts
 
 step "Lint (selene)"
-selene src tests
+selene src tests scripts
 
 step "Type-check against the Roblox API (luau-lsp)"
 ./scripts/typecheck.sh

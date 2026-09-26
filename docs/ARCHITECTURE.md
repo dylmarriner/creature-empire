@@ -40,6 +40,8 @@ Services/ActionService       the single entry point for profile mutation
 Services/NetworkService      remotes, request validation, rate limits, replication
 Services/PlotService         plot allocation, building rendering, respawn at plot
 Services/WorldService        world geometry, gathering nodes, wild creatures, capture
+Services/LeaderboardService  player-list empire stats derived from the profile
+Services/AnalyticsReporter   onboarding funnel and coin economy events to AnalyticsService
 Services/Logger              structured logging without player data
 Persistence/ProfileStore     session-locked load/save over an abstract store (pure)
 Persistence/DataStoreAdapter Roblox DataStore adapter with request-budget waits
@@ -56,7 +58,7 @@ Every profile change — remote actions, gathering, capture, the starter grant �
 2. run the domain mutation on the copy inside `pcall`,
 3. on an ok result, evaluate objectives and grant rewards,
 4. validate the full profile schema,
-5. commit by swapping the session profile, then replicate and re-render.
+5. commit by swapping the session profile, then notify commit listeners with the previous profile, the action label and completed objectives. Listeners re-render the plot, replicate the snapshot, refresh player-list stats and report analytics.
 
 A thrown error, a failed domain result or a schema violation discards the copy, so a partially applied mutation can never be saved. Unexpected failures are logged with the action name and user id only.
 
@@ -77,7 +79,7 @@ Client → server actions are RemoteEvents under `ReplicatedStorage.Remotes`, na
 | `ClaimProduction` | optional `buildingId` (omitted = claim all) | profile |
 | `SellResource` | `itemId`, `quantity` | profile |
 | `RequestSync` | none | session |
-| `Travel` | `destination` (`home` or `wilds`) | session |
+| `Travel` | `destination` (`home`, `wilds` or `plot`), `targetUserId` for `plot` | session |
 
 Each request is `(requestId, payload)`. The server processes it in this order:
 

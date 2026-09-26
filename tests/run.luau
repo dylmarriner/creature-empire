@@ -28,11 +28,14 @@ local specs = {
     { name = "buildings/PlacementDomain", run = require("./buildings/PlacementDomain.spec") },
     { name = "buildings/UpgradeDomain", run = require("./buildings/UpgradeDomain.spec") },
     { name = "world/GatheringDomain", run = require("./world/GatheringDomain.spec") },
+    { name = "world/WorldLayout", run = require("./world/WorldLayout.spec") },
     { name = "progression/ObjectiveDomain", run = require("./progression/ObjectiveDomain.spec") },
     { name = "profiles/ProfileIntegrity", run = require("./profiles/ProfileIntegrity.spec") },
     { name = "net/ActionSchemas", run = require("./net/ActionSchemas.spec") },
     { name = "gameplay/ActionPipeline", run = require("./gameplay/ActionPipeline.spec") },
+    { name = "gameplay/Telemetry", run = require("./gameplay/Telemetry.spec") },
     { name = "server/ProfileStore", run = require("./server/ProfileStore.spec") },
+    { name = "server/OpenCloudDataStore", run = require("./server/OpenCloudDataStore.spec") },
     { name = "integration/VerticalSlice", run = require("./integration/VerticalSlice.spec") },
 }
 

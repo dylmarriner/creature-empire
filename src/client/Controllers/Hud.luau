@@ -27,6 +27,7 @@ export type Hud = typeof(setmetatable(
         _resources: Frame,
         _objective: Frame,
         _actionBar: Frame,
+        _pending: TextLabel,
         _loading: Frame,
         _panel: Frame,
         _panelTitle: TextLabel,
@@ -108,6 +109,21 @@ function Hud.new(playerGui: PlayerGui): Hud
     local barLayout = Widgets.list(actionBar, Enum.FillDirection.Horizontal, 8)
     barLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 
+    local pending = Widgets.label({
+        name = "Pending",
+        parent = root,
+        text = "",
+        size = UDim2.fromOffset(420, 24),
+        position = UDim2.new(0.5, 0, 1, -60),
+        textSize = 15,
+        bold = true,
+        color = Theme.Coin,
+        alignX = Enum.TextXAlignment.Center,
+    })
+    pending.AnchorPoint = Vector2.new(0.5, 1)
+    pending.TextStrokeTransparency = 0.5
+    pending.Visible = false
+
     local panel = Widgets.frame({
         name = "Panel",
         parent = root,
@@ -167,6 +183,7 @@ function Hud.new(playerGui: PlayerGui): Hud
         _resources = resources,
         _objective = objective,
         _actionBar = actionBar,
+        _pending = pending,
         _loading = loading,
         _panel = panel,
         _panelTitle = panelTitle,
@@ -201,6 +218,15 @@ function Hud.addAction(self: Hud, text: string, order: number, onActivated: () -
         order = order,
         onActivated = onActivated,
     })
+end
+
+-- Shows the estimated unclaimed production above the action bar.
+function Hud.setPending(self: Hud, cycles: number, buildings: number)
+    self._pending.Visible = cycles > 0
+    if cycles > 0 then
+        local noun = if buildings == 1 then "building" else "buildings"
+        self._pending.Text = `About {cycles} cycles ready in {buildings} {noun} - Claim All`
+    end
 end
 
 function Hud.panelName(self: Hud): string?

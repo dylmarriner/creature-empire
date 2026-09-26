@@ -36,9 +36,15 @@ Exit criterion met in simulation: the integration test plays a new profile from 
 
 ## Phase 6: Social validation
 
-**Status: Not started**
+**Status: Core implemented; further systems gated on playtesting**
 
-All players share one server world, so plots can already be visited on foot. Explicit plot visiting (teleport to a friend's plot, visitor labels) and any other social systems are added only when playtesting justifies them.
+Implemented:
+
+- plot visiting: a Visit menu lists every empire in the server and travels to its plot (look-only; visitors cannot act on another player's buildings),
+- player-list empire stats (`leaderstats`): Empire level (sum of building levels) and creature count,
+- idle creatures shown in a pen beside each plot, so empires are visibly distinct.
+
+Any further social system (trading, gifting, co-op, chat features) is added only when playtest data shows it is needed.
 
 ## Later specifications
 

@@ -14,6 +14,7 @@ local BuildingDefinitions = require(Shared.Buildings.BuildingDefinitions)
 local CreatureDefinitions = require(Shared.Creatures.CreatureDefinitions)
 local PlacementDomain = require(Shared.Buildings.PlacementDomain)
 local WorldLayout = require(Shared.World.WorldLayout)
+local TableUtil = require(Shared.Util.TableUtil)
 
 local CELL = GameConfig.BUILD_GRID_SIZE
 local PLOT_STUDS = WorldLayout.PLOT_STUDS
@@ -28,6 +29,8 @@ type PlotRecord = {
     buildings: Folder,
     corner: Vector3,
     signatures: { [string]: string },
+    pen: Folder,
+    penSignature: string,
     characterConnection: RBXScriptConnection?,
 }
 
@@ -183,6 +186,10 @@ function PlotService.assign(self: PlotService, player: Player)
     buildings.Name = "Buildings"
     buildings.Parent = model
 
+    local pen = Instance.new("Folder")
+    pen.Name = "IdleCreatures"
+    pen.Parent = model
+
     model.PrimaryPart = base
     model.Parent = self._folder
 
@@ -192,6 +199,8 @@ function PlotService.assign(self: PlotService, player: Player)
         buildings = buildings,
         corner = corner,
         signatures = {},
+        pen = pen,
+        penSignature = "",
         characterConnection = nil,
     }
 
@@ -246,6 +255,18 @@ function PlotService.sendHome(self: PlotService, player: Player): boolean
         return false
     end
     self:_moveToPlot(player, character)
+    return true
+end
+
+-- Moves `visitor` to the spawn point of `host`'s plot. Returns false when either is not
+-- ready.
+function PlotService.sendToPlotOf(self: PlotService, visitor: Player, host: Player): boolean
+    local record = self._plots[host]
+    local character = visitor.Character
+    if record == nil or character == nil or self._plots[visitor] == nil then
+        return false
+    end
+    character:PivotTo(spawnCFrame(record))
     return true
 end
 
@@ -361,11 +382,56 @@ function PlotService._buildModel(
 end
 
 -- Brings the rendered plot in line with the profile, rebuilding only changed buildings.
+-- Rebuilds the idle-creature pen when the set of idle creatures changes.
+function PlotService._renderPen(_self: PlotService, record: PlotRecord, profile: any)
+    local idle = {}
+    for _, creatureId in ipairs(TableUtil.sortedKeys(profile.creatures)) do
+        local creature = profile.creatures[creatureId]
+        if creature.assignedBuildingId == nil then
+            table.insert(idle, creature)
+        end
+    end
+
+    local parts = {}
+    for _, creature in ipairs(idle) do
+        table.insert(parts, `{creature.id}:{creature.speciesId}:{creature.level}`)
+    end
+    local signature = table.concat(parts, "|")
+    if signature == record.penSignature then
+        return
+    end
+    record.penSignature = signature
+    record.pen:ClearAllChildren()
+
+    for index, creature in ipairs(idle) do
+        local species = CreatureDefinitions.ById[creature.speciesId]
+        if species ~= nil then
+            local localX, localZ = WorldLayout.penSlotXZ(index)
+            local part = makePart({
+                name = creature.id,
+                size = Vector3.new(2.6, 2.6, 2.6),
+                cframe = CFrame.new(record.corner + Vector3.new(localX, 1.3, localZ)),
+                color = toColor(species.color),
+                shape = Enum.PartType.Ball,
+                canCollide = false,
+                parent = record.pen,
+            })
+            makeBillboard(part, { `{species.displayName} Lv {creature.level}` }, 2.5)
+            local label = part:FindFirstChild("Label")
+            if label ~= nil and label:IsA("BillboardGui") then
+                label.MaxDistance = 45
+            end
+        end
+    end
+end
+
 function PlotService.render(self: PlotService, player: Player, profile: any)
     local record = self._plots[player]
     if record == nil then
         return
     end
+
+    self:_renderPen(record, profile)
 
     for buildingId, building in pairs(profile.buildings) do
         local signature = signatureFor(building)

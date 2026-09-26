@@ -16,13 +16,13 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local ProfileSchema = require(Shared.Profiles.ProfileSchema)
 local ProfileIntegrity = require(Shared.Profiles.ProfileIntegrity)
 local TableUtil = require(Shared.Util.TableUtil)
+local ProfileKeys = require(Shared.Profiles.ProfileKeys)
 
 local ProfileStore = require("../Persistence/ProfileStore")
 local MemoryStore = require("../Persistence/MemoryStore")
 local DataStoreAdapter = require("../Persistence/DataStoreAdapter")
 local Logger = require("./Logger")
 
-local DATASTORE_NAME = "PlayerProfiles_v1"
 local AUTOSAVE_INTERVAL_SECONDS = 90
 local SHUTDOWN_TIMEOUT_SECONDS = 25
 local RELEASE_ATTEMPTS = 4
@@ -68,15 +68,11 @@ export type PlayerDataService = typeof(setmetatable(
     PlayerDataService
 ))
 
-local function keyFor(userId: number): string
-    return `player_{userId}`
-end
-
 -- Chooses the persistent store. Live servers always use DataStores; Studio falls back to an
 -- in-memory store only when API access is disabled, and says so loudly.
 local function createStoreAdapter(): (ProfileStore.StoreAdapter, boolean)
     local success, dataStoreOrError = pcall(function()
-        return DataStoreService:GetDataStore(DATASTORE_NAME)
+        return DataStoreService:GetDataStore(ProfileKeys.DATASTORE_NAME)
     end)
 
     if success and RunService:IsStudio() then
@@ -231,7 +227,7 @@ function PlayerDataService._load(self: PlayerDataService, player: Player)
     self._loading[player] = true
 
     local userId = player.UserId
-    local key = keyFor(userId)
+    local key = ProfileKeys.keyFor(userId)
 
     -- A quick rejoin on this server must not read the record before the previous session's
     -- release save lands; this server's own lock would not make the load wait.

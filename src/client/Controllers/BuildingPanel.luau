@@ -12,6 +12,7 @@ local UpgradeDomain = require(Shared.Buildings.UpgradeDomain)
 local CapacityDomain = require(Shared.Economy.CapacityDomain)
 local InventoryDomain = require(Shared.Economy.InventoryDomain)
 local TableUtil = require(Shared.Util.TableUtil)
+local ProductionEstimate = require(Shared.Gameplay.ProductionEstimate)
 
 local Theme = require("../UI/Theme")
 local Widgets = require("../UI/Widgets")
@@ -59,12 +60,6 @@ local function ownPlotBuildings(): Folder?
         end
     end
     return nil
-end
-
--- Pending whole cycles since the last claim, as an estimate from replicated data.
-local function pendingCycles(snapshot: any, building: any, rate: number, serverNow: number): number
-    local elapsed = math.clamp(serverNow - building.lastClaimedAt, 0, snapshot.offlineCapSeconds)
-    return math.max(0, math.floor(rate / 60 * elapsed + 1e-9))
 end
 
 local function section(parent: Instance, text: string, order: number)
@@ -351,7 +346,12 @@ function BuildingPanel._updateReady(self: BuildingPanel)
         label.Text = "Idle: assign a worker to start production."
         return
     end
-    local cycles = pendingCycles(snapshot, building, rate, self._state:serverNow())
+    local cycles = ProductionEstimate.pendingCycles(
+        building,
+        rate,
+        self._state:serverNow(),
+        snapshot.offlineCapSeconds
+    )
     label.Text = `Ready to claim: about {cycles} cycles`
 end
 

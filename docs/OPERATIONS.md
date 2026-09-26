@@ -30,7 +30,10 @@ Each item should be verified in a live test server, not only in Studio:
 - Capturing wild creatures succeeds and fails at roughly the listed chances, respects habitat capacity, and the creature respawns.
 - The market sells at the listed prices.
 - Leaving and rejoining (same and different server) restores everything; production accumulated while offline is claimable and capped.
-- Home and Wilds travel buttons work.
+- Home and Wilds travel buttons work; Visit lists other players and travels to their plot, and visitors cannot select or change the host's buildings.
+- The player list shows Empire and Creatures for every player and updates after building, upgrading and capturing.
+- Idle creatures appear in the pen beside the plot and move to their building when assigned.
+- After rejoining with unclaimed production, the welcome-back prompt appears and the ready indicator above the action bar counts up.
 - Rapid clicking produces `rate_limited` toasts rather than errors.
 
 ## Monitoring
@@ -52,13 +55,26 @@ Logs never contain profile contents or balances.
 
 ## Data requests
 
-Roblox may forward *Right to Erasure* requests. Delete the player's record with the Open Cloud DataStore API (or in a Studio command bar with API access):
+Use `scripts/player-data.luau` with an Open Cloud API key that has DataStore permissions for the experience (**Creator Dashboard → Open Cloud → API Keys**):
 
-- universe: the live experience
-- datastore: `PlayerProfiles_v1`
-- key: `player_<userId>`
+```bash
+export ROBLOX_API_KEY=...          # never commit this
+export ROBLOX_UNIVERSE_ID=...      # numeric universe id of the live experience
 
-Records carry the user id as key metadata, which is what Roblox's tooling expects.
+lune run scripts/player-data get <userId>               # print the stored record (support, audits)
+lune run scripts/player-data delete <userId> --confirm  # Right to Erasure
+```
+
+The tool reads the DataStore name and key format (`PlayerProfiles_v1`, `player_<userId>`) from `src/shared/Profiles/ProfileKeys.luau`, the same module the server uses. Delete the record only after the player has left; a live server would otherwise write it back on its next save. Records carry the user id as key metadata, as Roblox's privacy tooling expects.
+
+## Analytics
+
+`AnalyticsReporter` sends events to Roblox AnalyticsService; view them under **Creator Dashboard → Analytics**:
+
+- **Onboarding funnel:** step 1 is a player's first join (starter grant); step N + 1 is objective N. Drop-off between steps shows where new players quit the tutorial.
+- **Economy (currency `coins`):** sources are objective rewards (`Onboarding`) and resource sales (`Gameplay`, SKU = item sold); sinks are building upgrades (`Gameplay`, SKU = building upgraded).
+
+Events are derived from committed profile changes by the pure `Shared.Gameplay.AnalyticsEvents` module, so they always agree with saved data. Analytics failures are logged as `analytics event failed` and never affect gameplay.
 
 ## Changing persisted data
 
