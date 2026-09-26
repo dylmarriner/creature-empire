@@ -6,7 +6,7 @@ The repository is intentionally building **one complete game before a creator pl
 
 ## What is implemented
 
-The first playable vertical slice (roadmap phases 1–5):
+The first playable vertical slice and core social features (roadmap phases 1–6):
 
 - **World**: a shared server world with a spawn, a plot district and the Wilds exploration zone (trees, rocks, wandering wild creatures), all built from code at server start.
 - **Plots**: every player gets a 30×30-cell plot; buildings are persisted as plot-local grid cells and re-rendered from data.
@@ -18,7 +18,9 @@ The first playable vertical slice (roadmap phases 1–5):
 - **Progression**: a 19-step objective chain from first wood to a level-3 building, with coin rewards.
 - **Persistence**: session-locked DataStore profiles with retries, lock takeover, autosave, save-on-leave and shutdown saves. Invalid or unreadable data is never overwritten with defaults.
 - **Networking**: semantic RemoteEvents with strict payload schemas, per-player token-bucket rate limits and a transactional mutation pipeline.
-- **UI**: code-built HUD (resources, objective tracker, toasts), build menu with a live placement preview (mouse, keyboard and touch), building, creature and market panels, and home/Wilds travel.
+- **UI**: code-built HUD (resources, objective tracker, toasts, an unclaimed-production indicator and a welcome-back prompt), build menu with a live placement preview (mouse, keyboard and touch), building, creature, market and visit panels, and home/Wilds travel.
+- **Social**: visit other players' plots, player-list empire stats, and idle creatures shown beside each plot.
+- **Operations**: onboarding-funnel and coin-economy analytics, and an Open Cloud tool (`scripts/player-data.luau`) for inspecting and erasing player data.
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for status and [`docs/OPERATIONS.md`](docs/OPERATIONS.md) for launch and live-operations steps.
 
@@ -63,8 +65,8 @@ lune run tests/run
 Run the static checks:
 
 ```bash
-stylua --check src tests
-selene src tests
+stylua --check src tests scripts
+selene src tests scripts
 ./scripts/typecheck.sh
 ```
 
@@ -101,6 +103,7 @@ src/server/Persistence  session-locked profile store and store adapters
 src/server/Services     player data, actions, network, plots, world, logging
 src/client/Controllers  state, action requests, HUD, build, panels
 src/client/UI           theme, widgets, formatting
+scripts/                validation, type-check and Open Cloud player-data tooling
 tests/                  Lune runner, specs, fixtures and the vertical-slice integration test
 docs/                   game, architecture, economy, creature, data-model and operations docs
 docs/superpowers/       approved design specifications and implementation plans

@@ -48,6 +48,10 @@ Players can own **4 + 4 per Creature Habitat level** creatures. Capture fails wi
 
 `ReleaseCreature` removes an idle creature permanently. Assigned creatures must be unassigned first, and the last owned creature cannot be released.
 
+## Presentation
+
+Assigned workers stand beside their building. Idle creatures stand in a pen just outside the north edge of their owner's plot, laid out by `WorldLayout.penSlotXZ`; the pen holds the largest possible roster (64 creatures) without reaching the next plot row. All of this is rendered from profile data and never read back.
+
 ## Levels
 
 Workers gain one experience point per production cycle. Reaching the next level costs `50 × current level` experience; the maximum level is 10. Each level above 1 adds 5% to that worker's contribution.
