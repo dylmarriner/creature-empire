@@ -143,7 +143,8 @@ function BuildController._createControls(self: BuildController)
         name = "PlacementControls",
         parent = self._hud.root,
         size = UDim2.fromOffset(0, 44),
-        position = UDim2.new(0.5, 0, 1, -64),
+        -- Above the action bar and the unclaimed-production indicator.
+        position = UDim2.new(0.5, 0, 1, -92),
         anchor = Vector2.new(0.5, 1),
         transparency = 1,
         rounded = false,
