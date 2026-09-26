@@ -5,13 +5,14 @@ local TableUtil = require("../Util/TableUtil")
 
 local MAX_ID_LENGTH = 64
 local MAX_REQUEST_ID = 2 ^ 31 - 1
+local MAX_USER_ID = 2 ^ 53 - 1
 
 local function idField(name: string, optional: boolean?)
     return { name = name, kind = "id", optional = optional == true }
 end
 
-local function integerField(name: string, min: number, max: number)
-    return { name = name, kind = "integer", min = min, max = max, optional = false }
+local function integerField(name: string, min: number, max: number, optional: boolean?)
+    return { name = name, kind = "integer", min = min, max = max, optional = optional == true }
 end
 
 local function enumField(name: string, values: { string })
@@ -77,7 +78,11 @@ local schemas = {
         scope = "session",
     },
     [ActionNames.Travel] = {
-        fields = { enumField("destination", { "home", "wilds" }) },
+        -- "plot" visits another player's plot and requires targetUserId.
+        fields = {
+            enumField("destination", { "home", "wilds", "plot" }),
+            integerField("targetUserId", 1, MAX_USER_ID, true),
+        },
         rate = { burst = 1, perSecond = 0.25 },
         scope = "session",
     },

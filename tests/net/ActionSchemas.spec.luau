@@ -119,6 +119,21 @@ local function run()
     )
     Expect.falsy((ActionSchemas.validate("Travel", { destination = 1 })), "enum type rejected")
     Expect.equal(ActionSchemas.scopeFor("Travel"), "session", "travel is a session action")
+    local visitOk, visit =
+        ActionSchemas.validate("Travel", { destination = "plot", targetUserId = 12345 })
+    Expect.truthy(visitOk, "plot visit accepted")
+    Expect.equal(visit.targetUserId, 12345, "visit target kept")
+    Expect.falsy(
+        (ActionSchemas.validate("Travel", { destination = "plot", targetUserId = 0 })),
+        "non-positive visit target rejected"
+    )
+    Expect.falsy(
+        (ActionSchemas.validate("Travel", { destination = "plot", targetUserId = 1.5 })),
+        "fractional visit target rejected"
+    )
+    local homeOk, home = ActionSchemas.validate("Travel", { destination = "home" })
+    Expect.truthy(homeOk, "visit target is optional")
+    Expect.equal(home.targetUserId, nil, "no visit target for home")
     Expect.equal(
         ActionSchemas.scopeFor("PlaceBuilding"),
         "profile",
