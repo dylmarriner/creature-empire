@@ -140,8 +140,8 @@ local function genetics()
 
     -- Every base pair can produce its hybrid.
     for index, firstId in ipairs(CreatureDefinitions.WildIds) do
-        for second = index + 1, #CreatureDefinitions.WildIds do
-            local secondId = CreatureDefinitions.WildIds[second]
+        for otherIndex = index + 1, #CreatureDefinitions.WildIds do
+            local secondId = CreatureDefinitions.WildIds[otherIndex]
             local wanted = CreatureDefinitions.hybridFor(firstId, secondId)
             local found = false
             for seed = 1, 300 do
