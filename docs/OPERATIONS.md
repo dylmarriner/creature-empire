@@ -82,6 +82,12 @@ Events are derived from committed profile changes by the pure `Shared.Gameplay.A
 - Renaming or removing an item, species, building or objective ID requires a new schema version with an explicit, tested migration in `ProfileSchema.migrate`.
 - Changing the stored record format requires bumping `RECORD_FORMAT` in `ProfileStore` with a reader for the previous format.
 
+## Feature flags
+
+Post-launch systems ship off. `FeatureFlagService` reads the DataStore `FeatureFlags_v1`, key `flags`, every 60 seconds: a table of flag name to boolean, with names from `src/shared/Config/FeatureFlags.luau` (`breeding`, `expeditions`, `store`, `trading`, `marketplace`, `guilds`). Edit it in Creator Hub (Data Stores) or through Open Cloud. Removing a flag restores its default (off); unknown names and non-boolean values are ignored and logged as `ignored invalid feature flag entries`. If the DataStore cannot be read the last known values stay in force, so an outage cannot switch a system on.
+
 ## Rollback
 
 Publishing a previous place version rolls back code only. Data written by a newer version stays in place; the older version rejects any profile it cannot validate instead of overwriting it, so affected players are kicked with a support message until the newer version is restored. Avoid releases that change persisted data shape and gameplay at the same time.
+
+**Schema v2 cannot be rolled back once it is live.** If a build that stores schema v1 has ever been published to the live experience, the release that introduces v2 upgrades each profile when it loads and saves it as v2, after which a v1 build refuses it. Ship that release with no gameplay change, watch `release save failed` and `session lock lost` for at least a week, and treat it as the floor: later releases may be rolled back to it, never below it. If v1 has never gone live, v2 can simply ship as part of the first release and none of this applies. Players who joined only the older servers during a rolling update are unaffected until they hop to a v2 server; use *Shut down all servers* so every server runs one version.

@@ -8,7 +8,7 @@ Examples: `creature_rockhorn`, `building_mine`, `item_copper_ore`, `objective_bu
 
 Player-owned instances receive server-generated IDs: `c_<guid>` for creatures and `b_<guid>` for buildings.
 
-## Profile schema version 1
+## Profile schema version 2
 
 ```luau
 export type PlayerProfile = {
@@ -21,9 +21,20 @@ export type PlayerProfile = {
     creatures: { [string]: CreatureInstance },
     buildings: { [string]: BuildingInstance },
     unlocks: { [string]: boolean },
+    eggs: { [string]: { id: string } },          -- breeding (phase 8); that system owns the fields
+    expeditions: { [string]: { id: string } },   -- combat (phase 9); that system owns the fields
+    transfers: { [string]: TransferJournalEntry }, -- escrowed offers not yet settled
+    purchases: { [string]: number },             -- receiptId -> processedAt (monetization)
+    passes: { [string]: boolean },               -- owned game passes
+    guildId: string?,                            -- cache; the guild record is the truth
+    stats: { [string]: number },                 -- counters for analytics and objectives
     lastSeenAt: number,
 }
 ```
+
+Version 2 added every field the post-launch systems need in one migration, so those systems ship without further schema changes. Eggs and expeditions are only required to be tables filed under their own `id`; their domains add optional fields and validate them, which needs no new version.
+
+Version 1 profiles upgrade on load (`ProfileSchema.migrate`, verified first by the frozen `ProfileSchemaV1` validator): every existing creature gets neutral genes (16/16/16), generation 0 and `bornAt = lastSeenAt`, and the new maps start empty. The upgrade is pure and deterministic, and migrating a v2 profile is a validated copy. A v2 profile is refused by a v1 build, so the release that adds v2 cannot be rolled back (see `OPERATIONS.md`).
 
 `src/shared/Profiles/ProfileSchema.luau` owns the schema lifecycle:
 
@@ -46,6 +57,10 @@ export type CreatureInstance = {
     traits: { string },
     mutationId: string?,
     assignedBuildingId: string?,
+    genes: { vigor: number, might: number, focus: number }, -- integers 0..31
+    generation: number,     -- 0 for wild, starter and pre-breeding creatures
+    lineage: { speciesA: string, speciesB: string }?, -- display only
+    bornAt: number,         -- profile clock when the creature was created
 }
 ```
 
@@ -72,6 +87,25 @@ export type BuildingInstance = {
 - Multi-resource costs are prevalidated in full before anything is deducted.
 - Worker assignment is two-sided: a creature's `assignedBuildingId` and the building's `assignedCreatureIds` always agree. Load-time integrity repair removes any reference that does not.
 - Every committed mutation passes full schema validation (see the transactional pipeline in `ARCHITECTURE.md`).
+
+## Transfers
+
+A transfer moves offers (items, coins, whole creatures) between two players. Each party escrows its offer in `profile.transfers[transferId]` (`{ id, createdAt, offer }`), which removes it from live data in one validated commit; the shared ledger record (`Transfers_v1`, key `transfer_<id>`) then decides the outcome:
+
+```luau
+{
+    id = string,
+    kind = string,
+    state = "pending" | "completed" | "cancelled",
+    parties = { userIdA, userIdB },
+    offers = { [tostring(userId)]: TransferPayload },
+    createdAt = number, completedAt = number?, cancelledAt = number?,
+}
+```
+
+A journal entry exists exactly while an offer is unsettled. Settling a completed record gives the offer away and takes the counterpart's in one commit; settling a cancelled one restores the offer. Both are idempotent, which is what makes crash recovery safe. A cancelled record with no parties is a tombstone left when recovery finds an escrowed offer that was never published. See `ARCHITECTURE.md` for the step order.
+
+A held creature is a full `CreatureInstance` inside the entry and is absent from `profile.creatures`, so an item is never in two live places.
 
 ## Stored record
 

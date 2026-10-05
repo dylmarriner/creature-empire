@@ -7,6 +7,7 @@
         NetworkService                 validated, rate-limited client actions
         PlotService                    plot allocation and building rendering
         WorldService                   the Wilds: gathering nodes and wild creatures
+        FeatureFlagService             live kill switches for post-launch systems
 ]]
 
 local Players = game:GetService("Players")
@@ -31,6 +32,7 @@ local PlotService = require("@self/Services/PlotService")
 local WorldService = require("@self/Services/WorldService")
 local LeaderboardService = require("@self/Services/LeaderboardService")
 local AnalyticsReporter = require("@self/Services/AnalyticsReporter")
+local FeatureFlagService = require("@self/Services/FeatureFlagService")
 
 assert(
     #ItemDefinitions.Ids == GameConfig.INITIAL_RESOURCE_COUNT,
@@ -160,6 +162,10 @@ network:setSessionHandler(ActionNames.Travel, function(player: Player, payload: 
 end)
 
 local worldService = WorldService.new({ actionService = actionService, network = network })
+
+-- Kept for the systems it gates; none consult it yet.
+local _featureFlags = FeatureFlagService.new()
+_featureFlags:start()
 
 network:start()
 plotService:start()

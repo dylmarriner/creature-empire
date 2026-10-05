@@ -1,5 +1,5 @@
 local GameConfig = {
-    SCHEMA_VERSION = 1,
+    SCHEMA_VERSION = 2,
     OFFLINE_PRODUCTION_CAP_SECONDS = 8 * 60 * 60,
     BUILD_GRID_SIZE = 4,
     INITIAL_RESOURCE_COUNT = 6,
@@ -29,6 +29,12 @@ local GameConfig = {
     MAX_CREATURE_LEVEL = 10,
     CREATURE_LEVEL_OUTPUT_BONUS = 0.05,
     CREATURE_EXPERIENCE_PER_LEVEL = 50,
+
+    -- Genetics. Every creature carries three genes in [GENE_MIN, GENE_MAX]. Creatures that
+    -- predate breeding (and wild or starter creatures) use the neutral value.
+    GENE_MIN = 0,
+    GENE_MAX = 31,
+    NEUTRAL_GENE = 16,
 
     -- Market.
     MAX_SELL_QUANTITY = 100000,

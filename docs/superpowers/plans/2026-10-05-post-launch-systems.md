@@ -2,7 +2,7 @@
 
 **Goal:** add the six systems the roadmap defers (phases 7–13) without breaking the invariants the first release is built on: one server-authoritative mutation path, pure testable domains, session-locked profiles, and "never overwrite known-good data".
 
-**Status:** proposed. Nothing here is implemented. Open questions are at the end and need an owner decision before the phases that depend on them.
+**Status:** phase 7 is implemented (see its section for what changed from the first draft); phases 8–13 are proposed. Open questions are at the end and need an owner decision before the phases that depend on them.
 
 ## Constraints from the existing design
 
@@ -39,30 +39,32 @@ bornAt: number,                      -- server Unix seconds
 -- PlayerProfile additions
 eggs: { [string]: Egg },             -- breeding (phase 8)
 expeditions: { [string]: Expedition }, -- combat (phase 9)
-escrow: { [string]: EscrowEntry },   -- items held out of play for an open transfer (11, 12)
-receivedTransfers: { [string]: number }, -- transferId -> claimedAt; idempotent claims (11, 12)
+transfers: { [string]: TransferJournalEntry }, -- offers escrowed for an unsettled transfer (11, 12)
 purchases: { [string]: number },     -- receiptId -> processedAt, trimmed to the newest 200 (10)
 passes: { [string]: boolean },       -- owned game passes (10)
 guildId: string?,                    -- cache only; the guild record is the truth (13)
 stats: { [string]: number },         -- counters for analytics and objectives
 ```
 
-- `migrate` v1 → v2 is explicit, deterministic and idempotent. Existing creatures receive **fixed neutral genes (16/16/16)** and `generation = 0`, so launch players are neither advantaged nor punished. The new maps start empty.
-- `ProfileIntegrity` gains repair rules: an egg or expedition referencing a missing creature is cleaned up; an escrow entry with no matching ledger record is **kept and flagged**, never deleted (it may hold a player's item).
-- Tests: v1 fixtures migrate and validate; migrating twice is a no-op; a v2 profile is rejected by the v1 validator (documents the rollback hazard).
+- `migrate` v1 → v2 is explicit, deterministic and idempotent. A frozen `ProfileSchemaV1` validates the stored profile before it is upgraded. Existing creatures receive **fixed neutral genes (16/16/16)**, `generation = 0` and `bornAt = lastSeenAt`, so launch players are neither advantaged nor punished. The new maps start empty.
+- Eggs and expeditions are validated only as "a table filed under its own id"; their phases add and validate their own fields, which needs no new schema version. Egg and expedition repair rules (a record referencing a missing creature) therefore arrive with phases 8 and 9, not here. A transfer journal entry with no ledger record is never deleted by repair: the coordinator tombstones the id and then restores the offer.
+- Tests: v1 fixtures migrate and validate; migrating twice is a no-op; corrupt, future-version and non-table input is refused; a v2 profile is rejected by the v1 validator (documents the rollback hazard); every new field is validated strictly.
 - **Release step:** ship this phase on its own, soak it for at least a week on live, and only then ship gameplay. Document in `OPERATIONS.md` that rollback below this build is unsupported.
 
 ### Shared infrastructure
 
 - **`Util/SeededRandom`**: a small deterministic PRNG (splitmix/PCG) seeded from a stored integer. Breeding results and combat are pure functions of `(inputs, seed)`, so tests are exact and players cannot re-roll by leaving.
 - **`Persistence/LedgerStore`**: a DataStore (`Transfers_v1`) of transfer records, written only via `UpdateAsync` with a compare-state transform. Pure state machine in `Transfers/TransferDomain`, adapter behind the same abstract `update(key, transform)` interface `ProfileStore` uses, so it runs against `MemoryStore` under Lune.
-- **Anti-dupe transfer protocol** (used by trading and the marketplace):
-  1. *Escrow:* the sender's profile moves the offered items into `profile.escrow[transferId]` in one validated, saved commit. Items now exist in exactly one place.
-  2. *Publish:* the server writes `open` to the ledger (idempotent on `transferId`). If the process dies here, load-time reconciliation re-publishes the escrow entry or restores it.
-  3. *Claim:* the recipient's profile adds the items and records `receivedTransfers[transferId]` in a saved commit. Only then does the server flip the ledger `open → claimed` (atomic; losing a race to `cancelled` aborts the claim before step 3 commits).
-  4. *Settle:* the sender clears its escrow entry once the ledger says `claimed`, or restores it if the ledger says `cancelled`.
-  A crash at any point leaves the item in escrow, in the ledger, or already claimed, never duplicated and never lost. The load-time reconciler repeats step 3's flip and step 4 until the ledger and profile agree.
-- **`Config/FeatureFlags`**: per-system kill switches readable from a DataStore or MessagingService so trading, marketplace, breeding, or a store product can be disabled live without a publish.
+- **Anti-dupe transfer protocol** (implemented in `Shared/Transfers`; used by trading, and by the marketplace with a `join` step added in phase 12). The first draft had separate sender and recipient claims; that left a window where a cancel could race a claim. The implemented design is a single ledger record per two-party transfer that either completes or cancels as one atomic update:
+  1. *Hold:* each party moves its offer into `profile.transfers[transferId]` in one validated commit. A held creature leaves `profile.creatures`, so an item is never in two live places.
+  2. *Save:* both profiles are saved. **The ledger is published only after this**; publishing first would let a crash restore the items to the profile while a claimable record still exists.
+  3. *Publish:* the `pending` record (both offers) is written to the ledger.
+  4. *Complete:* the record flips to `completed` in one atomic ledger update. This is the point of no return. `cancel` uses the same atomic update, so exactly one of them wins.
+  5. *Settle:* each party, in one commit, gives away its offer and takes the other's (completed) or restores its own (cancelled). Settling is idempotent because it keys on the journal entry; with no entry there is nothing to do.
+  A journal entry whose record was never published is **tombstoned** (a cancelled record is written) before the offer is restored, so a late publish from a crashed or superseded server is refused. On profile load, `reconcile` settles every journal entry, so any crash converges. A ledger outage yields a pending result, never a wrong one. Receiving or restoring never refuses for capacity, because the outcome is final; callers check room before publishing.
+  `tests/server/TransferCoordinator.spec.luau` crashes the swap before and after each of its steps and fails each step in turn, reloads, reconciles and checks every item, coin and creature is accounted for and the result is all-or-nothing. Deliberately reordering save and publish, or dropping the tombstone, makes it fail.
+- **`Config/FeatureFlags` + `FeatureFlagService`**: per-system kill switches (all off by default) read from the `FeatureFlags_v1` DataStore every 60 seconds, so a system can be enabled or disabled live without a publish. A read failure keeps the last known values.
+- **Not in phase 7:** wiring the transfer coordinator to `PlayerDataService` and a real DataStore, and `reconcile` on profile load. Nothing uses transfers yet, so that belongs to phase 11, which also needs a way to save a profile immediately (the coordinator takes it as an injected `save`).
 
 ## Phase 8: Breeding and genetics
 
@@ -107,14 +109,14 @@ Roblox policy points to respect: purchases go through `MarketplaceService`; paid
 
 - **Scope:** player-to-player, both online. Tradable: resources, coins, creatures. Not tradable: gems, assigned or away creatures, creatures with an open egg or expedition, the last creature the player owns (matching the release rule).
 - **Flow:** `TradeRequest` → the target accepts → each side adds offers → both lock → a short confirmation delay with the final contents re-displayed → both confirm. Any change after locking resets locks. The server owns the session; the client only sends intent.
-- **Execution** uses the escrow/ledger protocol from phase 7 even when both players share a server. Settling is idempotent and reconciles after a crash on either side.
+- **Execution** uses the escrow/ledger protocol from phase 7 even when both players share a server (`TransferCoordinator.swap`). Settling is idempotent and reconciles after a crash on either side.
 - **Safeguards:** account-age and playtime gate (proposed: 7 days or 2 hours played), max 20 items per side, coin-value sanity warning for very lopsided trades, per-player trade rate limit, daily value cap for new accounts, structured trade log (userIds, item ids, never chat) for support.
 - **Actions:** `TradeRequest`, `TradeAccept`, `TradeSetOffer`, `TradeLock`, `TradeConfirm`, `TradeCancel`.
 - **Tests:** full happy path, cancel at each step, one side disconnects mid-trade, profile load failure, crash simulation at every protocol step (run the transfer under fault injection and assert conservation of items), double-confirm, and an offered item removed from the profile mid-trade.
 
 ## Phase 12: Marketplace
 
-- **Model:** coin-priced listings for resources and creatures, cross-server. Listing = a phase 11 ledger transfer that is open to anyone at a stated price. Buying escrows the buyer's coins, flips the listing `open → sold` atomically, then the buyer claims the item and the seller claims the coins through the same inbox protocol.
+- **Model:** coin-priced listings for resources and creatures, cross-server. Listing = a phase 11 ledger transfer that is open to anyone at a stated price. Buying escrows the buyer's coins in its profile (saved), then a new `join` ledger transition attaches the buyer's offer and completes the record atomically, if it is still pending and meets the ask; both parties then settle exactly as in phase 7. A buyer whose join loses the race is not a party to the completed record, so settlement restores the buyer's coins. Phase 12 adds `join` and the ask check to `TransferDomain`; phase 7 supports fixed two-party records only.
 - **Coin sink:** 5% sale fee burned on sale, and a small listing fee, both configurable. Per-item price floors and ceilings (derived from `ECONOMY.md` sell prices) block wash trading and price manipulation.
 - **Index:** a MemoryStore sorted map for browsing and search is a *cache*. The DataStore listing is the source of truth, and the index is rebuilt from it if lost. Listings expire after 48 hours and return to the seller's inbox.
 - **Limits:** 10 active listings per player, rate limits on browse and buy, trade-eligibility gate from phase 11.

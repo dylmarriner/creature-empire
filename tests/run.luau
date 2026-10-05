@@ -2,6 +2,8 @@ local process = require("@lune/process")
 
 local specs = {
     { name = "shared/ProductionAndGridMath", run = require("./shared/ProductionMath.spec") },
+    { name = "shared/SeededRandom", run = require("./shared/SeededRandom.spec") },
+    { name = "shared/FeatureFlags", run = require("./shared/FeatureFlags.spec") },
     { name = "shared/DefinitionsIntegrity", run = require("./shared/DefinitionsIntegrity.spec") },
     { name = "economy/ProfileSchema", run = require("./economy/ProfileSchema.spec") },
     { name = "economy/InventoryDomain", run = require("./economy/InventoryDomain.spec") },
@@ -31,10 +33,13 @@ local specs = {
     { name = "world/WorldLayout", run = require("./world/WorldLayout.spec") },
     { name = "progression/ObjectiveDomain", run = require("./progression/ObjectiveDomain.spec") },
     { name = "profiles/ProfileIntegrity", run = require("./profiles/ProfileIntegrity.spec") },
+    { name = "profiles/ProfileMigration", run = require("./profiles/ProfileMigration.spec") },
+    { name = "transfers/TransferDomain", run = require("./transfers/TransferDomain.spec") },
     { name = "net/ActionSchemas", run = require("./net/ActionSchemas.spec") },
     { name = "gameplay/ActionPipeline", run = require("./gameplay/ActionPipeline.spec") },
     { name = "gameplay/Telemetry", run = require("./gameplay/Telemetry.spec") },
     { name = "server/ProfileStore", run = require("./server/ProfileStore.spec") },
+    { name = "server/TransferCoordinator", run = require("./server/TransferCoordinator.spec") },
     { name = "server/OpenCloudDataStore", run = require("./server/OpenCloudDataStore.spec") },
     { name = "integration/VerticalSlice", run = require("./integration/VerticalSlice.spec") },
 }

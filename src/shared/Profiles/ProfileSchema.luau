@@ -1,8 +1,12 @@
 local ItemDefinitions = require("../Items/ItemDefinitions")
 local CreatureDefinitions = require("../Creatures/CreatureDefinitions")
 local BuildingDefinitions = require("../Buildings/BuildingDefinitions")
+local GameConfig = require("../Config/GameConfig")
+local ProfileSchemaV1 = require("./ProfileSchemaV1")
 
-local CURRENT_VERSION = 1
+local CURRENT_VERSION = 2
+
+local GENE_NAMES = table.freeze({ "vigor", "might", "focus" })
 
 local function isFiniteInteger(value: any): boolean
     return type(value) == "number"
@@ -36,6 +40,32 @@ local function isStringArray(value: any): boolean
 
     for index = 1, count do
         if type(value[index]) ~= "string" then
+            return false
+        end
+    end
+
+    return true
+end
+
+-- Genes are exactly the three known keys, each an integer in [GENE_MIN, GENE_MAX].
+local function validateGenes(genes: any): boolean
+    if type(genes) ~= "table" then
+        return false
+    end
+
+    for key in pairs(genes) do
+        if table.find(GENE_NAMES, key) == nil then
+            return false
+        end
+    end
+
+    for _, name in ipairs(GENE_NAMES) do
+        local value = genes[name]
+        if
+            not isFiniteInteger(value)
+            or value < GameConfig.GENE_MIN
+            or value > GameConfig.GENE_MAX
+        then
             return false
         end
     end
@@ -77,6 +107,32 @@ local function validateCreature(creature: any): boolean
 
     if creature.assignedBuildingId ~= nil and type(creature.assignedBuildingId) ~= "string" then
         return false
+    end
+
+    if not validateGenes(creature.genes) then
+        return false
+    end
+
+    if
+        not isNonNegativeInteger(creature.generation) or not isNonNegativeInteger(creature.bornAt)
+    then
+        return false
+    end
+
+    if creature.lineage ~= nil then
+        local lineage = creature.lineage
+        if
+            type(lineage) ~= "table"
+            or type(lineage.speciesA) ~= "string"
+            or type(lineage.speciesB) ~= "string"
+        then
+            return false
+        end
+        for key in pairs(lineage) do
+            if key ~= "speciesA" and key ~= "speciesB" then
+                return false
+            end
+        end
     end
 
     return true
@@ -128,6 +184,121 @@ local function validateBuilding(building: any): boolean
     return true
 end
 
+-- A transfer payload is everything one party puts up: inventory items, coins and whole
+-- creature records. Creatures held here are out of play: they are not in `profile.creatures`.
+local function validatePayload(payload: any): boolean
+    if type(payload) ~= "table" then
+        return false
+    end
+
+    for key in pairs(payload) do
+        if key ~= "items" and key ~= "coins" and key ~= "creatures" then
+            return false
+        end
+    end
+
+    if type(payload.items) ~= "table" or not isNonNegativeInteger(payload.coins) then
+        return false
+    end
+
+    for itemId, quantity in pairs(payload.items) do
+        if
+            type(itemId) ~= "string"
+            or ItemDefinitions.ById[itemId] == nil
+            or not isFiniteInteger(quantity)
+            or quantity < 1
+        then
+            return false
+        end
+    end
+
+    if type(payload.creatures) ~= "table" then
+        return false
+    end
+
+    for id, creature in pairs(payload.creatures) do
+        if type(id) ~= "string" or not validateCreature(creature) or creature.id ~= id then
+            return false
+        end
+        if creature.assignedBuildingId ~= nil then
+            return false
+        end
+    end
+
+    return true
+end
+
+-- One entry per transfer this profile has escrowed an offer for and not yet settled.
+local function validateTransfers(transfers: any): boolean
+    if type(transfers) ~= "table" then
+        return false
+    end
+
+    for id, entry in pairs(transfers) do
+        if
+            type(id) ~= "string"
+            or type(entry) ~= "table"
+            or entry.id ~= id
+            or not isNonNegativeInteger(entry.createdAt)
+            or not validatePayload(entry.offer)
+        then
+            return false
+        end
+        for key in pairs(entry) do
+            if key ~= "id" and key ~= "createdAt" and key ~= "offer" then
+                return false
+            end
+        end
+    end
+
+    return true
+end
+
+-- Eggs and expeditions are owned by later systems, which validate their own fields. The
+-- schema only guarantees each record is a table filed under its own id, so those systems can
+-- add optional fields without another schema version.
+local function validateRecordMap(records: any): boolean
+    if type(records) ~= "table" then
+        return false
+    end
+
+    for id, record in pairs(records) do
+        if type(id) ~= "string" or type(record) ~= "table" or record.id ~= id then
+            return false
+        end
+    end
+
+    return true
+end
+
+local function validateCounterMap(counters: any): boolean
+    if type(counters) ~= "table" then
+        return false
+    end
+
+    for key, value in pairs(counters) do
+        if type(key) ~= "string" or not isNonNegativeInteger(value) then
+            return false
+        end
+    end
+
+    return true
+end
+
+local function validateFlagMap(flags: any): boolean
+    if type(flags) ~= "table" then
+        return false
+    end
+
+    for key, value in pairs(flags) do
+        if type(key) ~= "string" or value ~= true then
+            return false
+        end
+    end
+
+    return true
+end
+
 local function deepCopy(value: any): any
     if type(value) ~= "table" then
         return value
@@ -154,6 +325,13 @@ local function createDefault(now: number)
         creatures = {},
         buildings = {},
         unlocks = {},
+        eggs = {},
+        expeditions = {},
+        transfers = {},
+        purchases = {},
+        passes = {},
+        guildId = nil,
+        stats = {},
         lastSeenAt = now,
     }
 end
@@ -227,6 +405,34 @@ local function validate(profile: any): (boolean, string?)
         end
     end
 
+    if not validateRecordMap(profile.eggs) then
+        return false, "invalid egg record"
+    end
+
+    if not validateRecordMap(profile.expeditions) then
+        return false, "invalid expedition record"
+    end
+
+    if not validateTransfers(profile.transfers) then
+        return false, "invalid transfer record"
+    end
+
+    if not validateCounterMap(profile.purchases) then
+        return false, "invalid purchase record"
+    end
+
+    if not validateFlagMap(profile.passes) then
+        return false, "invalid pass record"
+    end
+
+    if profile.guildId ~= nil and (type(profile.guildId) ~= "string" or profile.guildId == "") then
+        return false, "guildId must be a non-empty string"
+    end
+
+    if not validateCounterMap(profile.stats) then
+        return false, "invalid stats record"
+    end
+
     if not isNonNegativeInteger(profile.lastSeenAt) then
         return false, "lastSeenAt must be a finite non-negative integer"
     end
@@ -234,7 +440,53 @@ local function validate(profile: any): (boolean, string?)
     return true
 end
 
+-- Upgrades a validated v1 profile to v2. Pure and deterministic: existing creatures get the
+-- neutral genes and generation 0, and `bornAt` is the profile's last-seen time, so no player
+-- is advantaged or disadvantaged by the upgrade. New maps start empty.
+local function upgradeV1(profile: any): any
+    local upgraded = deepCopy(profile)
+    upgraded.schemaVersion = 2
+
+    for _, creature in pairs(upgraded.creatures) do
+        creature.genes = {
+            vigor = GameConfig.NEUTRAL_GENE,
+            might = GameConfig.NEUTRAL_GENE,
+            focus = GameConfig.NEUTRAL_GENE,
+        }
+        creature.generation = 0
+        creature.bornAt = upgraded.lastSeenAt
+    end
+
+    upgraded.eggs = {}
+    upgraded.expeditions = {}
+    upgraded.transfers = {}
+    upgraded.purchases = {}
+    upgraded.passes = {}
+    upgraded.stats = {}
+
+    return upgraded
+end
+
+-- Returns an independent, current-version copy of a stored profile, or (nil, reason). Each
+-- supported version is verified by its own validator before any upgrade runs, so unknown or
+-- malformed data is refused rather than guessed into shape. Running it on a current profile
+-- is a validated copy, which makes migration idempotent.
 local function migrate(profile: any)
+    if type(profile) == "table" and profile.schemaVersion == ProfileSchemaV1.VERSION then
+        local valid, reason = ProfileSchemaV1.validate(profile)
+        if not valid then
+            return nil, reason
+        end
+
+        local upgraded = upgradeV1(profile)
+        local upgradedValid, upgradedReason = validate(upgraded)
+        if not upgradedValid then
+            return nil, upgradedReason
+        end
+
+        return upgraded
+    end
+
     local valid, reason = validate(profile)
     if not valid then
         return nil, reason

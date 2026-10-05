@@ -50,13 +50,17 @@ Any further social system (trading, gifting, co-op, chat features) is added only
 
 **Status: Planned, not started.** Full design, ordering and open questions are in [`superpowers/plans/2026-10-05-post-launch-systems.md`](superpowers/plans/2026-10-05-post-launch-systems.md).
 
-- **Phase 7:** schema v2 migration, deterministic RNG and the transfer ledger. Ships alone, before any gameplay uses the new fields.
+- **Phase 7:** schema v2 migration, deterministic RNG, the transfer ledger and feature flags. **Implemented** (see below). Ships alone, before any gameplay uses the new fields.
 - **Phase 8:** breeding and genetics.
 - **Phase 9:** combat as asynchronous PvE expeditions.
 - **Phase 10:** monetization (gems, game passes, idempotent receipts).
 - **Phase 11:** player-to-player trading.
 - **Phase 12:** marketplace.
 - **Phase 13:** guilds.
+
+### Phase 7 status
+
+**Status: Implemented, not yet released.** Schema v2 with a tested v1 upgrade, `SeededRandom`, the escrow/ledger transfer protocol with crash and failure sweeps, and feature flags. No new gameplay is switched on. The transfer protocol is not yet connected to a live service. Release it on its own and soak it before starting phase 8; see the rollback note in [`OPERATIONS.md`](OPERATIONS.md).
 
 ## Later specifications
 

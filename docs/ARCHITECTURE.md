@@ -42,6 +42,7 @@ Services/PlotService         plot allocation, building rendering, respawn at plo
 Services/WorldService        world geometry, gathering nodes, wild creatures, capture
 Services/LeaderboardService  player-list empire stats derived from the profile
 Services/AnalyticsReporter   onboarding funnel and coin economy events to AnalyticsService
+Services/FeatureFlagService  live kill switches for post-launch systems (DataStore `FeatureFlags_v1`)
 Services/Logger              structured logging without player data
 Persistence/ProfileStore     session-locked load/save over an abstract store (pure)
 Persistence/DataStoreAdapter Roblox DataStore adapter with request-budget waits
@@ -63,6 +64,22 @@ Every profile change â€” remote actions, gathering, capture, the starter grant â
 A thrown error, a failed domain result or a schema violation discards the copy, so a partially applied mutation can never be saved. Unexpected failures are logged with the action name and user id only.
 
 Domain mutations never yield, and Luau runs each event handler to completion, so actions from one player cannot interleave.
+
+## Transfers
+
+`Shared/Transfers` holds the engine-free protocol for moving offers between two players: `TransferDomain` (the ledger record state machine), `EscrowDomain` (profile-side hold, restore and settle), `LedgerStore` (atomic ledger reads and writes over an abstract store) and `TransferCoordinator` (the ordering). Nothing in it is wired to a live service yet; the first system that trades will connect it to `PlayerDataService` and a DataStore. Only the server may call it.
+
+The coordinator keeps items from being duplicated or lost across crashes by fixing the order of steps:
+
+1. both parties **hold** their offer (escrow, one validated commit each),
+2. both profiles are **saved**; the ledger is published only after this, so a crash cannot leave a published record whose items are still live in a profile,
+3. the pending record is **published**,
+4. the record is **completed**, the point of no return,
+5. each party **settles** in one commit: its offer leaves and the other's arrives.
+
+A pending record can instead be cancelled (stale, or found during recovery), after which each party restores its offer. Completing and cancelling race on one atomic ledger update, so exactly one wins. When a profile loads, `reconcile` settles every journal entry it carries, so any crash converges. An escrowed offer whose record was never published is tombstoned first, so a late publish from a crashed or superseded server is refused. A ledger outage never produces a wrong answer, only a pending one.
+
+`tests/server/TransferCoordinator.spec.luau` proves this by crashing the swap before and after every step, and failing every step, then reloading, reconciling and asserting all-or-nothing with every item, coin and creature accounted for.
 
 ## Networking
 
