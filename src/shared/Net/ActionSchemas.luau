@@ -67,6 +67,16 @@ local schemas = {
         rate = { burst = 5, perSecond = 2 },
         scope = "profile",
     },
+    [ActionNames.StartBreeding] = {
+        fields = { idField("creatureIdA"), idField("creatureIdB") },
+        rate = { burst = 3, perSecond = 1 },
+        scope = "profile",
+    },
+    [ActionNames.HatchEgg] = {
+        fields = { idField("eggId") },
+        rate = { burst = 5, perSecond = 2 },
+        scope = "profile",
+    },
     [ActionNames.SellResource] = {
         fields = { idField("itemId"), integerField("quantity", 1, GameConfig.MAX_SELL_QUANTITY) },
         rate = { burst = 10, perSecond = 4 },

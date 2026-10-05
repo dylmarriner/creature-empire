@@ -62,6 +62,11 @@ local function hasCreatureSpace(profile: any): boolean
     return creatureCount(profile) < creatureCapacity(profile)
 end
 
+-- Eggs that can incubate at once: one per Breeding Den level.
+local function breedingSlots(profile: any): number
+    return math.min(GameConfig.BREEDING_MAX_SLOTS, utilityLevels(profile, "breeding"))
+end
+
 local function hasUtility(profile: any, utility: string): boolean
     return utilityLevels(profile, utility) > 0
 end
@@ -72,5 +77,6 @@ return table.freeze({
     creatureCapacity = creatureCapacity,
     creatureCount = creatureCount,
     hasCreatureSpace = hasCreatureSpace,
+    breedingSlots = breedingSlots,
     hasUtility = hasUtility,
 })

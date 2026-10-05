@@ -9,6 +9,8 @@ return table.freeze({
     UpgradeBuilding = "UpgradeBuilding",
     RemoveBuilding = "RemoveBuilding",
     ClaimProduction = "ClaimProduction",
+    StartBreeding = "StartBreeding",
+    HatchEgg = "HatchEgg",
     SellResource = "SellResource",
     RequestSync = "RequestSync",
     Travel = "Travel",

@@ -23,6 +23,8 @@ local GLOBAL_BURST = 30
 local GLOBAL_PER_SECOND = 10
 local ID_PREFIX_BY_ACTION = {
     [ActionNames.PlaceBuilding] = "b",
+    [ActionNames.StartBreeding] = "e",
+    [ActionNames.HatchEgg] = "c",
 }
 
 local NetworkService = {}
@@ -38,6 +40,8 @@ export type NetworkService = typeof(setmetatable(
         _remotes: Folder,
         _actionService: any,
         _playerData: any,
+        _featureFlags: any,
+        _random: Random,
         _limiter: RateLimiter.RateLimiter,
         _rejections: { [Player]: number },
         _sessionHandlers: { [string]: SessionHandler },
@@ -78,13 +82,18 @@ function NetworkService.createRemotes(): Folder
     return folder
 end
 
-function NetworkService.new(
-    options: { remotes: Folder, actionService: any, playerData: any }
-): NetworkService
+function NetworkService.new(options: {
+    remotes: Folder,
+    actionService: any,
+    playerData: any,
+    featureFlags: any,
+}): NetworkService
     return setmetatable({
         _remotes = options.remotes,
         _actionService = options.actionService,
         _playerData = options.playerData,
+        _featureFlags = options.featureFlags,
+        _random = Random.new(),
         _limiter = RateLimiter.new(os.clock),
         _rejections = {},
         _sessionHandlers = {},
@@ -130,7 +139,8 @@ function NetworkService.sendSnapshot(self: NetworkService, player: Player, profi
     if resolved == nil then
         return
     end
-    local snapshot = Snapshot.build(resolved, self._actionService:now())
+    local snapshot =
+        Snapshot.build(resolved, self._actionService:now(), self._featureFlags:snapshot())
     self:_remote(RemoteNames.StateSnapshot):FireClient(player, snapshot)
 end
 
@@ -210,6 +220,12 @@ function NetworkService._handle(
             now = actionService:now(),
             generateId = function()
                 return actionService:generateId(idPrefix)
+            end,
+            isFeatureEnabled = function(name: string)
+                return self._featureFlags:isEnabled(name)
+            end,
+            randomSeed = function()
+                return self._random:NextInteger(0, 4294967295)
             end,
         })
     end)

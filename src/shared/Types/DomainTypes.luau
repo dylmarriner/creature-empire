@@ -22,6 +22,7 @@ export type CreatureInstance = {
     generation: number,
     lineage: { speciesA: string, speciesB: string }?,
     bornAt: number,
+    breedReadyAt: number?,
 }
 
 export type BuildingInstance = {
@@ -93,6 +94,8 @@ export type DomainErrorCode =
     | "building_limit_reached"
     | "not_ready"
     | "rate_limited"
+    | "egg_not_found"
+    | "breeding_slots_full"
     | "transfer_not_found"
     | "transfer_not_pending"
     | "transfer_forbidden"

@@ -6,14 +6,24 @@ local WorkAssignmentDomain = require("../Creatures/WorkAssignmentDomain")
 local CreatureOwnershipDomain = require("../Creatures/CreatureOwnershipDomain")
 local ProductionDomain = require("../Economy/ProductionDomain")
 local MarketDomain = require("../Economy/MarketDomain")
+local BreedingDomain = require("../Creatures/BreedingDomain")
+local BuildingDefinitions = require("../Buildings/BuildingDefinitions")
 
 export type ActionContext = {
     now: number,
     generateId: () -> string,
+    -- Whether a live feature flag is on. A missing function counts as off.
+    isFeatureEnabled: ((name: string) -> boolean)?,
+    -- A fresh seed in [0, 2^32) for randomness that must be fixed once rolled (eggs).
+    randomSeed: (() -> number)?,
 }
 
 local function err(code: string, message: string)
     return { ok = false, code = code, message = message }
+end
+
+local function featureEnabled(context: ActionContext, name: string): boolean
+    return context.isFeatureEnabled ~= nil and context.isFeatureEnabled(name) == true
 end
 
 -- Handlers receive a draft profile, a schema-sanitized payload and server-owned context.
@@ -41,6 +51,15 @@ handlers[ActionNames.ReleaseCreature] = function(
 end
 
 handlers[ActionNames.PlaceBuilding] = function(profile: any, payload: any, context: ActionContext)
+    local definition = BuildingDefinitions.ById[payload.definitionId]
+    if
+        definition ~= nil
+        and definition.featureFlag ~= nil
+        and not featureEnabled(context, definition.featureFlag)
+    then
+        return err("not_unlocked", `{definition.displayName} is not available yet`)
+    end
+
     return PlacementDomain.place(
         profile,
         payload.definitionId,
@@ -82,6 +101,29 @@ handlers[ActionNames.ClaimProduction] = function(profile: any, payload: any, con
         return err("nothing_to_claim", "nothing is ready to claim yet")
     end
     return claimed
+end
+
+handlers[ActionNames.StartBreeding] = function(profile: any, payload: any, context: ActionContext)
+    if not featureEnabled(context, "breeding") then
+        return err("not_unlocked", "breeding is not available yet")
+    end
+    if context.randomSeed == nil then
+        return err("internal_error", "no random source for this action")
+    end
+
+    return BreedingDomain.start(
+        profile,
+        payload.creatureIdA,
+        payload.creatureIdB,
+        context.now,
+        context.generateId(),
+        context.randomSeed()
+    )
+end
+
+-- Hatching stays available when the flag is switched off, so eggs already laid are never lost.
+handlers[ActionNames.HatchEgg] = function(profile: any, payload: any, context: ActionContext)
+    return BreedingDomain.hatch(profile, payload.eggId, context.now, context.generateId())
 end
 
 handlers[ActionNames.SellResource] = function(profile: any, payload: any, _context: ActionContext)

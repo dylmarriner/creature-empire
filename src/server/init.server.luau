@@ -39,7 +39,9 @@ assert(
     "resource definition count mismatch"
 )
 assert(
-    #CreatureDefinitions.Ids == GameConfig.INITIAL_CREATURE_COUNT,
+    #CreatureDefinitions.WildIds == GameConfig.WILD_SPECIES_COUNT
+        and #CreatureDefinitions.Ids
+            == GameConfig.WILD_SPECIES_COUNT + GameConfig.HYBRID_SPECIES_COUNT,
     "creature definition count mismatch"
 )
 assert(
@@ -57,6 +59,9 @@ local logger = Logger.new("Server")
 local function now(): number
     return os.time()
 end
+
+local featureFlags = FeatureFlagService.new()
+featureFlags:start()
 
 local remotes = NetworkService.createRemotes()
 
@@ -99,6 +104,7 @@ network = NetworkService.new({
     remotes = remotes,
     actionService = actionService,
     playerData = playerData,
+    featureFlags = featureFlags,
 })
 
 actionService:onCommitted(
@@ -162,10 +168,6 @@ network:setSessionHandler(ActionNames.Travel, function(player: Player, payload: 
 end)
 
 local worldService = WorldService.new({ actionService = actionService, network = network })
-
--- Kept for the systems it gates; none consult it yet.
-local _featureFlags = FeatureFlagService.new()
-_featureFlags:start()
 
 network:start()
 plotService:start()

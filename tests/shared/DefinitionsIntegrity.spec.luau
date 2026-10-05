@@ -16,7 +16,12 @@ end
 
 local function run()
     Expect.equal(#ItemDefinitions.Ids, GameConfig.INITIAL_RESOURCE_COUNT, "resource count")
-    Expect.equal(#CreatureDefinitions.Ids, GameConfig.INITIAL_CREATURE_COUNT, "creature count")
+    Expect.equal(#CreatureDefinitions.WildIds, GameConfig.WILD_SPECIES_COUNT, "wild species count")
+    Expect.equal(
+        #CreatureDefinitions.Ids,
+        GameConfig.WILD_SPECIES_COUNT + GameConfig.HYBRID_SPECIES_COUNT,
+        "creature count"
+    )
     Expect.equal(#BuildingDefinitions.Ids, GameConfig.INITIAL_BUILDING_COUNT, "building count")
 
     for id, item in pairs(ItemDefinitions.ById) do
@@ -62,11 +67,16 @@ local function run()
     local staffed = {}
     for id, species in pairs(CreatureDefinitions.ById) do
         Expect.equal(species.id, id, "species id matches key")
-        Expect.truthy(
-            species.captureChance > 0 and species.captureChance <= 1,
-            `{id} capture chance`
-        )
-        Expect.truthy(species.spawnWeight > 0, `{id} spawn weight`)
+        if species.hybridOf == nil then
+            Expect.truthy(
+                species.captureChance > 0 and species.captureChance <= 1,
+                `{id} capture chance`
+            )
+            Expect.truthy(species.spawnWeight > 0, `{id} spawn weight`)
+        else
+            Expect.equal(species.captureChance, 0, `{id} hybrids cannot be captured`)
+            Expect.equal(species.spawnWeight, 0, `{id} hybrids do not spawn`)
+        end
         local useful = false
         for workType, affinity in pairs(species.workAffinity) do
             Expect.truthy(affinity > 0, `{id} {workType} affinity`)
@@ -81,6 +91,55 @@ local function run()
     for workType in pairs(workTypes) do
         Expect.truthy(staffed[workType], `{workType} buildings have a capable species`)
     end
+
+    -- Every pair of different base species has exactly one hybrid, and every hybrid belongs
+    -- to exactly one pair.
+    local pairCount = 0
+    local hybridCount = 0
+    for index, firstId in ipairs(CreatureDefinitions.WildIds) do
+        for second = index + 1, #CreatureDefinitions.WildIds do
+            local secondId = CreatureDefinitions.WildIds[second]
+            local hybridId = CreatureDefinitions.hybridFor(firstId, secondId)
+            Expect.truthy(hybridId ~= nil, `{firstId} + {secondId} has a hybrid`)
+            Expect.equal(
+                CreatureDefinitions.hybridFor(secondId, firstId),
+                hybridId,
+                `{firstId} + {secondId} is order independent`
+            )
+            local hybrid = CreatureDefinitions.ById[hybridId]
+            Expect.equal(hybrid.hybridOf[1], firstId, `{hybridId} first parent`)
+            Expect.equal(hybrid.hybridOf[2], secondId, `{hybridId} second parent`)
+            -- Generalists: both parents' trades, each below a specialist's own 1.25.
+            local first = CreatureDefinitions.ById[firstId]
+            local second2 = CreatureDefinitions.ById[secondId]
+            Expect.truthy(
+                hybrid.workAffinity[first.primaryWork] ~= nil
+                    and hybrid.workAffinity[second2.primaryWork] ~= nil,
+                `{hybridId} works both parents' trades`
+            )
+            for workType, affinity in pairs(hybrid.workAffinity) do
+                Expect.truthy(affinity < 1.25, `{hybridId} {workType} is below a specialist`)
+            end
+            pairCount += 1
+        end
+    end
+    for _, id in ipairs(CreatureDefinitions.Ids) do
+        if CreatureDefinitions.ById[id].hybridOf ~= nil then
+            hybridCount += 1
+        end
+    end
+    Expect.equal(pairCount, 15, "fifteen species pairs")
+    Expect.equal(hybridCount, pairCount, "one hybrid per pair")
+    Expect.equal(
+        CreatureDefinitions.hybridFor("creature_rockhorn", "creature_rockhorn"),
+        nil,
+        "same species has no hybrid"
+    )
+    Expect.equal(
+        CreatureDefinitions.hybridFor("creature_magmaback", "creature_rockhorn"),
+        nil,
+        "hybrids do not breed further hybrids"
+    )
 
     for id, node in pairs(ResourceNodeDefinitions.ById) do
         Expect.equal(node.id, id, "node id matches key")

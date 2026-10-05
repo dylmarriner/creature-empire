@@ -119,6 +119,10 @@ local function validateCreature(creature: any): boolean
         return false
     end
 
+    if creature.breedReadyAt ~= nil and not isNonNegativeInteger(creature.breedReadyAt) then
+        return false
+    end
+
     if creature.lineage ~= nil then
         local lineage = creature.lineage
         if

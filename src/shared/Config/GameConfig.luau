@@ -3,8 +3,9 @@ local GameConfig = {
     OFFLINE_PRODUCTION_CAP_SECONDS = 8 * 60 * 60,
     BUILD_GRID_SIZE = 4,
     INITIAL_RESOURCE_COUNT = 6,
-    INITIAL_CREATURE_COUNT = 6,
-    INITIAL_BUILDING_COUNT = 8,
+    WILD_SPECIES_COUNT = 6,
+    HYBRID_SPECIES_COUNT = 15,
+    INITIAL_BUILDING_COUNT = 9,
 
     -- Plot layout. Buildings are persisted in plot-local grid cells.
     PLOT_SIZE_CELLS = 30,
@@ -35,6 +36,23 @@ local GameConfig = {
     GENE_MIN = 0,
     GENE_MAX = 31,
     NEUTRAL_GENE = 16,
+    -- A worker's output changes by this much per vigor point above or below neutral, so a
+    -- neutral creature is exactly as productive as before genes existed.
+    VIGOR_OUTPUT_PER_POINT = 0.005,
+
+    -- Breeding. Costs scale with the older parent's generation so deep lineages are not free.
+    BREEDING_MIN_PARENT_LEVEL = 3,
+    BREEDING_COOLDOWN_SECONDS = 30 * 60,
+    BREEDING_COIN_COST_BASE = 100,
+    BREEDING_FOOD_COST_BASE = 10,
+    BREEDING_MAX_GENERATION = 10,
+    BREEDING_HATCH_BASE_SECONDS = 5 * 60,
+    BREEDING_HATCH_PER_GENERATION_SECONDS = 5 * 60,
+    BREEDING_HATCH_MAX_SECONDS = 60 * 60,
+    BREEDING_GENE_DRIFT = 2,
+    BREEDING_HYBRID_CHANCE = 0.4,
+    BREEDING_MUTATION_CHANCE = 0.03,
+    BREEDING_MAX_SLOTS = 5,
 
     -- Market.
     MAX_SELL_QUANTITY = 100000,

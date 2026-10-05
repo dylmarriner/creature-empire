@@ -9,6 +9,7 @@ local ids = {
     "building_warehouse",
     "building_creature_habitat",
     "building_workbench",
+    "building_breeding_den",
 }
 
 -- Production buildings run recipe cycles. Each cycle consumes `inputs` and yields `outputs`.
@@ -127,6 +128,20 @@ local byId = {
         maxCount = 1,
         maxWorkers = 0,
         color = { r = 170, g = 130, b = 80 },
+    },
+    building_breeding_den = {
+        id = "building_breeding_den",
+        displayName = "Breeding Den",
+        description = "Breed two creatures to hatch a new one. Each level adds an egg slot.",
+        kind = "utility",
+        utility = "breeding",
+        -- Hidden and refused until the `breeding` feature flag is on.
+        featureFlag = "breeding",
+        cost = { item_wood = 70, item_stone = 40, item_food = 30 },
+        footprint = { x = 3, z = 3 },
+        maxCount = 1,
+        maxWorkers = 0,
+        color = { r = 214, g = 150, b = 170 },
     },
 }
 
