@@ -46,6 +46,18 @@ Implemented:
 
 Any further social system (trading, gifting, co-op, chat features) is added only when playtest data shows it is needed.
 
+## Planned: post-launch systems (phases 7–13)
+
+**Status: Planned, not started.** Full design, ordering and open questions are in [`superpowers/plans/2026-10-05-post-launch-systems.md`](superpowers/plans/2026-10-05-post-launch-systems.md).
+
+- **Phase 7:** schema v2 migration, deterministic RNG and the transfer ledger. Ships alone, before any gameplay uses the new fields.
+- **Phase 8:** breeding and genetics.
+- **Phase 9:** combat as asynchronous PvE expeditions.
+- **Phase 10:** monetization (gems, game passes, idempotent receipts).
+- **Phase 11:** player-to-player trading.
+- **Phase 12:** marketplace.
+- **Phase 13:** guilds.
+
 ## Later specifications
 
-Breeding/genetics, mutations, combat expansion, trading, marketplace, guilds, seasons, monetization, creator tools, AI-assisted creation, and UGC publishing each require their own design and implementation plan.
+Seasons, PvP combat, creator tools, AI-assisted creation, and UGC publishing each require their own design and implementation plan.
