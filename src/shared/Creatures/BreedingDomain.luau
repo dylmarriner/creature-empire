@@ -47,7 +47,8 @@ local function eggCount(profile: any): number
     return count
 end
 
--- Why `creature` cannot breed right now, or nil when it can.
+-- Why `creature` cannot breed right now, or nil when it can. Also used by the client to list
+-- usable parents, so the menu and the server agree.
 local function ineligibleReason(creature: any, now: number): string?
     if creature.assignedBuildingId ~= nil then
         return "unassign it from its building first"
@@ -60,6 +61,8 @@ local function ineligibleReason(creature: any, now: number): string?
     end
     return nil
 end
+
+BreedingDomain.parentIneligibleReason = ineligibleReason
 
 -- Lays an egg from two creatures. `eggId` is a fresh id and `seed` an integer in [0, 2^32)
 -- chosen by the server; the client never supplies either.

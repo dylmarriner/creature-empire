@@ -76,6 +76,10 @@ function BuildController._renderMenu(self: BuildController, content: ScrollingFr
     local profile = snapshot.profile
     for index, definitionId in ipairs(BuildingDefinitions.Ids) do
         local definition = BuildingDefinitions.ById[definitionId]
+        -- Buildings behind a feature flag stay hidden until the server reports it on.
+        if definition.featureFlag ~= nil and snapshot.features[definition.featureFlag] ~= true then
+            continue
+        end
         local owned = PlacementDomain.countOfDefinition(profile, definitionId)
         local affordable = InventoryDomain.canAfford(profile, definition.cost)
         local underLimit = owned < definition.maxCount

@@ -6,10 +6,12 @@ local CreatureDefinitions = require(Shared.Creatures.CreatureDefinitions)
 local CreatureProgression = require(Shared.Creatures.CreatureProgression)
 local BuildingDefinitions = require(Shared.Buildings.BuildingDefinitions)
 local GameConfig = require(Shared.Config.GameConfig)
+local MutationDefinitions = require(Shared.Creatures.MutationDefinitions)
 local TableUtil = require(Shared.Util.TableUtil)
 
 local Theme = require("../UI/Theme")
 local Widgets = require("../UI/Widgets")
+local Format = require("../UI/Format")
 
 local CreaturePanel = {}
 CreaturePanel.__index = CreaturePanel
@@ -85,12 +87,26 @@ function CreaturePanel._render(self: CreaturePanel, content: ScrollingFrame, sna
             textSize = 13,
             order = 2,
         })
+        local mutation = if creature.mutationId ~= nil
+            then MutationDefinitions.ById[creature.mutationId]
+            else nil
+        local lineageText = if species.hybridOf ~= nil then "Hybrid  " else ""
+        local mutationText = if mutation ~= nil then `{mutation.displayName}  ` else ""
+        Widgets.label({
+            parent = card,
+            text = `{lineageText}{mutationText}Gen {creature.generation}  {Format.genes(
+                creature.genes
+            )}`,
+            color = if mutation ~= nil then Theme.Coin else Theme.TextMuted,
+            textSize = 12,
+            order = 3,
+        })
         Widgets.label({
             parent = card,
             text = if buildingName ~= nil then `Working at {buildingName}` else "Idle",
             color = if buildingName ~= nil then Theme.Accent else Theme.Warning,
             textSize = 13,
-            order = 3,
+            order = 4,
         })
 
         if assigned ~= nil then
@@ -100,7 +116,7 @@ function CreaturePanel._render(self: CreaturePanel, content: ScrollingFrame, sna
                 size = UDim2.fromOffset(110, 28),
                 color = Theme.SurfaceRaised,
                 textSize = 13,
-                order = 4,
+                order = 5,
                 onActivated = function()
                     self._actions:send("UnassignCreature", { creatureId = creatureId })
                 end,
@@ -113,7 +129,7 @@ function CreaturePanel._render(self: CreaturePanel, content: ScrollingFrame, sna
                 size = UDim2.fromOffset(140, 28),
                 color = Theme.Danger,
                 textSize = 13,
-                order = 4,
+                order = 5,
                 onActivated = function()
                     if not confirming then
                         self._confirmRelease = creatureId

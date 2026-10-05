@@ -94,6 +94,8 @@ Client → server actions are RemoteEvents under `ReplicatedStorage.Remotes`, na
 | `UpgradeBuilding` | `buildingId` | profile |
 | `RemoveBuilding` | `buildingId` | profile |
 | `ClaimProduction` | optional `buildingId` (omitted = claim all) | profile |
+| `StartBreeding` | `creatureIdA`, `creatureIdB` | profile |
+| `HatchEgg` | `eggId` | profile |
 | `SellResource` | `itemId`, `quantity` | profile |
 | `RequestSync` | none | session |
 | `Travel` | `destination` (`home`, `wilds` or `plot`), `targetUserId` for `plot` | session |

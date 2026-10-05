@@ -35,6 +35,8 @@ Each item should be verified in a live test server, not only in Studio:
 - Idle creatures appear in the pen beside the plot and move to their building when assigned.
 - After rejoining with unclaimed production, the welcome-back prompt appears and the ready indicator above the action bar counts up.
 - Rapid clicking produces `rate_limited` toasts rather than errors.
+- With the `breeding` flag **off**: the Breeding Den is missing from the build menu, and a modified client that requests it is refused with "not available yet".
+- With the `breeding` flag **on** (test experience only): the den appears and can be placed; the panel lists eligible parents (idle, Lv 3+); two picks show the cost; Breed lays an egg, takes the coins and food and puts both parents into a 30-minute rest; the egg's countdown ticks and Hatch works once it reaches zero; the baby appears in the Creatures panel with its genes, generation and any mutation; leaving and rejoining mid-incubation keeps the egg and its remaining time; switching the flag off still lets a ready egg hatch.
 
 ## Monitoring
 

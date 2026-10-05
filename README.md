@@ -2,7 +2,7 @@
 
 Creature Empire is a Roblox-first multiplayer game combining empire-building automation with creature collection. Creatures are useful workers, not decorative inventory: players explore, obtain creatures, assign them to jobs, produce resources, build infrastructure, and unlock stronger production chains.
 
-The repository is intentionally building **one complete game before a creator platform**. Breeding, trading, marketplace systems, guilds, deep combat, AI-assisted creation, and user-created experiences are later phases, not unfinished promises hiding in the first milestone.
+The repository is intentionally building **one complete game before a creator platform**. Breeding ships dark behind a feature flag; trading, marketplace systems, guilds, deep combat, AI-assisted creation, and user-created experiences are later phases, not unfinished promises hiding in the first milestone.
 
 ## What is implemented
 
@@ -19,6 +19,7 @@ The first playable vertical slice and core social features (roadmap phases 1–6
 - **Persistence**: session-locked DataStore profiles with retries, lock takeover, autosave, save-on-leave and shutdown saves. Invalid or unreadable data is never overwritten with defaults.
 - **Networking**: semantic RemoteEvents with strict payload schemas, per-player token-bucket rate limits and a transactional mutation pipeline.
 - **UI**: code-built HUD (resources, objective tracker, toasts, an unclaimed-production indicator and a welcome-back prompt), build menu with a live placement preview (mouse, keyboard and touch), building, creature, market and visit panels, and home/Wilds travel.
+- **Breeding** (behind the `breeding` feature flag, off by default): a Breeding Den lays eggs from two idle creatures; the baby inherits genes, may mutate, and can be one of 15 bred-only hybrid species.
 - **Social**: visit other players' plots, player-list empire stats, and idle creatures shown beside each plot.
 - **Operations**: onboarding-funnel and coin-economy analytics, and an Open Cloud tool (`scripts/player-data.luau`) for inspecting and erasing player data.
 

@@ -34,6 +34,8 @@ export type PlayerProfile = {
 
 Version 2 added every field the post-launch systems need in one migration, so those systems ship without further schema changes. Eggs and expeditions are only required to be tables filed under their own `id`; their domains add optional fields and validate them, which needs no new version.
 
+An egg (owned by the breeding system) is `{ id, parentA, parentB, seed, createdAt, hatchesAt }`, where each parent is a snapshot `{ speciesId, generation, mutationId?, genes }`. The baby is computed from the snapshots and seed at hatch time.
+
 Version 1 profiles upgrade on load (`ProfileSchema.migrate`, verified first by the frozen `ProfileSchemaV1` validator): every existing creature gets neutral genes (16/16/16), generation 0 and `bornAt = lastSeenAt`, and the new maps start empty. The upgrade is pure and deterministic, and migrating a v2 profile is a validated copy. A v2 profile is refused by a v1 build, so the release that adds v2 cannot be rolled back (see `OPERATIONS.md`).
 
 `src/shared/Profiles/ProfileSchema.luau` owns the schema lifecycle:
@@ -61,6 +63,7 @@ export type CreatureInstance = {
     generation: number,     -- 0 for wild, starter and pre-breeding creatures
     lineage: { speciesA: string, speciesB: string }?, -- display only
     bornAt: number,         -- profile clock when the creature was created
+    breedReadyAt: number?,  -- resting after breeding until this server time
 }
 ```
 

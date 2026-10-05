@@ -68,6 +68,19 @@ stats: { [string]: number },         -- counters for analytics and objectives
 
 ## Phase 8: Breeding and genetics
 
+**Status: implemented behind the `breeding` flag.** Decisions made while building it, where they differ from the first draft:
+
+- **15 hybrids, not a handful.** Every pair of different base species has exactly one hybrid, so all 15 exist. Hybrids are generalists (both parents' trades at 1.15 against a specialist's 1.25), cannot be captured, and never spawn. They do not breed further hybrids, which keeps the tree bounded; a deeper tree is a later addition to `CreatureDefinitions`.
+- **The Breeding Den is a utility building** (`utility = "breeding"`, max 1), so it needs no new building kind. A `featureFlag` field on a definition hides it from the build menu and makes the server refuse it while the flag is off.
+- **The baby is computed at hatch** from the stored seed and parent snapshots rather than at laying; the result is identical and nothing extra is stored.
+- **Genes are relative to neutral.** Output changes by `(vigor - 16) x 0.5%`, so every existing creature is unchanged. The first draft's "+0.5% per point" would have shifted all existing production.
+- **Mutations are zero-sum gene shifts** with a tint, rather than stat bonuses, so none is strictly better and production math needed no new rule.
+- **Parents rest, they do not leave.** Both keep working and go on a 30-minute cooldown (`breedReadyAt`, an optional creature field), so breeding costs coins and food but no downtime.
+- **Hatching ignores the flag**, so switching breeding off never strands an egg.
+
+Original scope and tests are kept below for reference.
+
+
 **Rule:** creatures are workers first. Breeding is a way to improve workers, not a separate minigame.
 
 - **New building `building_breeding_den`** (kind `breeding`, maxCount 1, upgrades add slots). Added via `BuildingDefinitions`; the definitions integrity test must be extended, because it currently requires every building to be a production building with a capable species.

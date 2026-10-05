@@ -28,6 +28,25 @@ function Format.items(items: { [string]: number }): string
     return if #parts > 0 then table.concat(parts, ", ") else "nothing"
 end
 
+-- "5m 03s", "1h 02m" or "12s".
+function Format.duration(seconds: number): string
+    local total = math.max(0, math.floor(seconds))
+    local hours = total // 3600
+    local minutes = (total % 3600) // 60
+    local secs = total % 60
+    if hours > 0 then
+        return string.format("%dh %02dm", hours, minutes)
+    elseif minutes > 0 then
+        return string.format("%dm %02ds", minutes, secs)
+    end
+    return `{secs}s`
+end
+
+-- "Vigor 16 / Might 16 / Focus 16"
+function Format.genes(genes: { vigor: number, might: number, focus: number }): string
+    return `Vigor {genes.vigor} / Might {genes.might} / Focus {genes.focus}`
+end
+
 function Format.rate(cyclesPerMinute: number): string
     return string.format("%.1f/min", cyclesPerMinute)
 end
