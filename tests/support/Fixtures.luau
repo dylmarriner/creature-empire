@@ -21,6 +21,9 @@ function Fixtures.addCreature(
         traits = {},
         mutationId = nil,
         assignedBuildingId = assignedBuildingId,
+        genes = { vigor = 16, might = 16, focus = 16 },
+        generation = 0,
+        bornAt = 0,
     }
     return profile.creatures[id]
 end

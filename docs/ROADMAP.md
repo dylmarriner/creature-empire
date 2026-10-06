@@ -46,6 +46,26 @@ Implemented:
 
 Any further social system (trading, gifting, co-op, chat features) is added only when playtest data shows it is needed.
 
+## Planned: post-launch systems (phases 7–13)
+
+**Status: Planned, not started.** Full design, ordering and open questions are in [`superpowers/plans/2026-10-05-post-launch-systems.md`](superpowers/plans/2026-10-05-post-launch-systems.md).
+
+- **Phase 7:** schema v2 migration, deterministic RNG, the transfer ledger and feature flags. **Implemented** (see below). Ships alone, before any gameplay uses the new fields.
+- **Phase 8:** breeding and genetics. **Implemented behind the `breeding` flag** (see below).
+- **Phase 9:** combat as asynchronous PvE expeditions.
+- **Phase 10:** monetization (gems, game passes, idempotent receipts).
+- **Phase 11:** player-to-player trading.
+- **Phase 12:** marketplace.
+- **Phase 13:** guilds.
+
+### Phase 7 status
+
+**Status: Implemented, not yet released.** Schema v2 with a tested v1 upgrade, `SeededRandom`, the escrow/ledger transfer protocol with crash and failure sweeps, and feature flags. No new gameplay is switched on. The transfer protocol is not yet connected to a live service. Release it on its own and soak it before starting phase 8; see the rollback note in [`OPERATIONS.md`](OPERATIONS.md).
+
+### Phase 8 status
+
+**Status: Implemented, off by default.** The Breeding Den, eggs, genes, 6 mutations and 15 hybrid species (one per pair of base species) work end to end, server and client, and are covered by tests. Nothing is visible until the `breeding` flag is switched on. Needs a test-experience playtest (see [`OPERATIONS.md`](OPERATIONS.md)), balance review of hybrid affinities and breeding costs, and art for the hybrids.
+
 ## Later specifications
 
-Breeding/genetics, mutations, combat expansion, trading, marketplace, guilds, seasons, monetization, creator tools, AI-assisted creation, and UGC publishing each require their own design and implementation plan.
+Seasons, PvP combat, creator tools, AI-assisted creation, and UGC publishing each require their own design and implementation plan.

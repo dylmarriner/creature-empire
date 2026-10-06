@@ -340,17 +340,17 @@ end
 
 function WorldService._pickSpecies(self: WorldService): string
     local total = 0
-    for _, speciesId in ipairs(CreatureDefinitions.Ids) do
+    for _, speciesId in ipairs(CreatureDefinitions.WildIds) do
         total += CreatureDefinitions.ById[speciesId].spawnWeight
     end
     local roll = self._random:NextNumber(0, total)
-    for _, speciesId in ipairs(CreatureDefinitions.Ids) do
+    for _, speciesId in ipairs(CreatureDefinitions.WildIds) do
         roll -= CreatureDefinitions.ById[speciesId].spawnWeight
         if roll <= 0 then
             return speciesId
         end
     end
-    return CreatureDefinitions.Ids[1]
+    return CreatureDefinitions.WildIds[1]
 end
 
 function WorldService._spawnCreature(self: WorldService, spawnPoint: CreatureSpawn)

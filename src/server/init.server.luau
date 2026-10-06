@@ -7,6 +7,7 @@
         NetworkService                 validated, rate-limited client actions
         PlotService                    plot allocation and building rendering
         WorldService                   the Wilds: gathering nodes and wild creatures
+        FeatureFlagService             live kill switches for post-launch systems
 ]]
 
 local Players = game:GetService("Players")
@@ -31,13 +32,16 @@ local PlotService = require("@self/Services/PlotService")
 local WorldService = require("@self/Services/WorldService")
 local LeaderboardService = require("@self/Services/LeaderboardService")
 local AnalyticsReporter = require("@self/Services/AnalyticsReporter")
+local FeatureFlagService = require("@self/Services/FeatureFlagService")
 
 assert(
     #ItemDefinitions.Ids == GameConfig.INITIAL_RESOURCE_COUNT,
     "resource definition count mismatch"
 )
 assert(
-    #CreatureDefinitions.Ids == GameConfig.INITIAL_CREATURE_COUNT,
+    #CreatureDefinitions.WildIds == GameConfig.WILD_SPECIES_COUNT
+        and #CreatureDefinitions.Ids
+            == GameConfig.WILD_SPECIES_COUNT + GameConfig.HYBRID_SPECIES_COUNT,
     "creature definition count mismatch"
 )
 assert(
@@ -55,6 +59,9 @@ local logger = Logger.new("Server")
 local function now(): number
     return os.time()
 end
+
+local featureFlags = FeatureFlagService.new()
+featureFlags:start()
 
 local remotes = NetworkService.createRemotes()
 
@@ -97,6 +104,7 @@ network = NetworkService.new({
     remotes = remotes,
     actionService = actionService,
     playerData = playerData,
+    featureFlags = featureFlags,
 })
 
 actionService:onCommitted(

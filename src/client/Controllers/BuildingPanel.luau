@@ -14,6 +14,7 @@ local InventoryDomain = require(Shared.Economy.InventoryDomain)
 local TableUtil = require(Shared.Util.TableUtil)
 local ProductionEstimate = require(Shared.Gameplay.ProductionEstimate)
 
+local BreedingSection = require("./BreedingSection")
 local Theme = require("../UI/Theme")
 local Widgets = require("../UI/Widgets")
 local Format = require("../UI/Format")
@@ -30,6 +31,7 @@ export type BuildingPanel = typeof(setmetatable(
         _buildingId: string?,
         _readyLabel: TextLabel?,
         _confirmRemove: boolean,
+        _breeding: BreedingSection.BreedingSection,
     },
     BuildingPanel
 ))
@@ -43,6 +45,7 @@ function BuildingPanel.new(hud: any, state: any, actions: any, build: any): Buil
         _buildingId = nil,
         _readyLabel = nil,
         _confirmRemove = false,
+        _breeding = BreedingSection.new(hud, state, actions),
     }, BuildingPanel)
 end
 
@@ -247,6 +250,8 @@ function BuildingPanel._render(self: BuildingPanel, content: ScrollingFrame, sna
             autoHeight = true,
             order = nextOrder(),
         })
+    elseif definition.utility == "breeding" then
+        self._breeding:render(content, snapshot, nextOrder)
     elseif definition.utility == "habitat" then
         Widgets.label({
             parent = content,
@@ -356,6 +361,9 @@ function BuildingPanel._updateReady(self: BuildingPanel)
 end
 
 function BuildingPanel.open(self: BuildingPanel, buildingId: string)
+    if self._buildingId ~= buildingId then
+        self._breeding:reset()
+    end
     self._buildingId = buildingId
     self._confirmRemove = false
     self._hud:openPanel("building", "Building", function(content: ScrollingFrame, snapshot: any)
@@ -410,6 +418,7 @@ function BuildingPanel.start(self: BuildingPanel)
             task.wait(1)
             if self._hud:panelName() == "building" then
                 self:_updateReady()
+                self._breeding:updateTimers()
             end
         end
     end)

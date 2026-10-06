@@ -4,6 +4,12 @@ export type PositionRecord = {
     z: number,
 }
 
+export type Genes = {
+    vigor: number,
+    might: number,
+    focus: number,
+}
+
 export type CreatureInstance = {
     id: string,
     speciesId: string,
@@ -12,6 +18,11 @@ export type CreatureInstance = {
     traits: { string },
     mutationId: string?,
     assignedBuildingId: string?,
+    genes: Genes,
+    generation: number,
+    lineage: { speciesA: string, speciesB: string }?,
+    bornAt: number,
+    breedReadyAt: number?,
 }
 
 export type BuildingInstance = {
@@ -24,6 +35,20 @@ export type BuildingInstance = {
     lastClaimedAt: number,
 }
 
+-- Everything one party puts up in a transfer. Held creatures are out of play.
+export type TransferPayload = {
+    items: { [string]: number },
+    coins: number,
+    creatures: { [string]: CreatureInstance },
+}
+
+-- A profile's record of an offer it has escrowed and not yet settled.
+export type TransferJournalEntry = {
+    id: string,
+    createdAt: number,
+    offer: TransferPayload,
+}
+
 export type PlayerProfile = {
     schemaVersion: number,
     currencies: {
@@ -34,6 +59,13 @@ export type PlayerProfile = {
     creatures: { [string]: CreatureInstance },
     buildings: { [string]: BuildingInstance },
     unlocks: { [string]: boolean },
+    eggs: { [string]: { id: string } },
+    expeditions: { [string]: { id: string } },
+    transfers: { [string]: TransferJournalEntry },
+    purchases: { [string]: number },
+    passes: { [string]: boolean },
+    guildId: string?,
+    stats: { [string]: number },
     lastSeenAt: number,
 }
 
@@ -62,6 +94,13 @@ export type DomainErrorCode =
     | "building_limit_reached"
     | "not_ready"
     | "rate_limited"
+    | "egg_not_found"
+    | "breeding_slots_full"
+    | "transfer_not_found"
+    | "transfer_not_pending"
+    | "transfer_forbidden"
+    | "transfer_conflict"
+    | "store_unavailable"
     | "internal_error"
 
 export type DomainResult<T> =

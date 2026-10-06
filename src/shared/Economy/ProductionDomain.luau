@@ -2,6 +2,7 @@ local GameConfig = require("../Config/GameConfig")
 local BuildingDefinitions = require("../Buildings/BuildingDefinitions")
 local CreatureDefinitions = require("../Creatures/CreatureDefinitions")
 local CreatureProgression = require("../Creatures/CreatureProgression")
+local GeneticsDomain = require("../Creatures/GeneticsDomain")
 local CapacityDomain = require("./CapacityDomain")
 local InventoryDomain = require("./InventoryDomain")
 local ProductionMath = require("./ProductionMath")
@@ -44,7 +45,9 @@ local function workerMultiplier(profile: any, building: any, workType: string): 
             local species = CreatureDefinitions.ById[creature.speciesId]
             local affinity = if species ~= nil then species.workAffinity[workType] else nil
             if NumberUtil.isFiniteNumber(affinity) and affinity > 0 then
-                total += affinity * CreatureProgression.outputMultiplier(creature.level)
+                total += affinity * CreatureProgression.outputMultiplier(creature.level) * GeneticsDomain.vigorMultiplier(
+                    creature
+                )
             end
         end
     end

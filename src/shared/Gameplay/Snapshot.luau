@@ -7,7 +7,7 @@ local TableUtil = require("../Util/TableUtil")
 
 -- Builds the replicated view of a player's own profile plus derived values the client
 -- needs for presentation. Everything here is display data; the server never reads it back.
-local function build(profile: any, now: number)
+local function build(profile: any, now: number, features: { [string]: boolean }?)
     local rates = {}
     for buildingId, building in pairs(profile.buildings) do
         rates[buildingId] = ProductionDomain.cyclesPerMinute(profile, building)
@@ -38,6 +38,8 @@ local function build(profile: any, now: number)
         creatureCount = CapacityDomain.creatureCount(profile),
         objective = objectiveView,
         objectiveCount = #ObjectiveDefinitions.Ordered,
+        breedingSlots = CapacityDomain.breedingSlots(profile),
+        features = if features ~= nil then table.clone(features) else {},
     }
 end
 

@@ -81,6 +81,10 @@ Claim-all settles extractors before processors, so ore mined during the same cla
 
 Assigning, unassigning, upgrading or removing a building first settles it at its old rate.
 
+## Breeding
+
+Starting an egg costs `100 x (1 + generation)` coins and `10 x (1 + generation)` food, where generation is the older parent's (generation 0 for wild creatures, so a first egg is 100 coins and 10 food). Both are sinks. The cost grows linearly with lineage depth so deep bloodlines stay a deliberate investment, and it stays under the 200 base storage limit up to generation 10 (1,100 coins, 110 food).
+
 ## Market
 
 `SellResource` converts resources to coins at the canonical sell price above. The client sends only the item and quantity (1–100,000); prices never come from the client.

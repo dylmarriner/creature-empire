@@ -20,7 +20,7 @@ end
 
 local function run()
     local profile = ProfileSchema.createDefault(100)
-    expectEqual(profile.schemaVersion, 1, "default schema version")
+    expectEqual(profile.schemaVersion, 2, "default schema version")
     expectEqual(profile.currencies.coins, 0, "default coins")
     expectEqual(profile.currencies.gems, 0, "default gems")
     expectEqual(profile.lastSeenAt, 100, "default last seen")
@@ -53,6 +53,9 @@ local function run()
         level = 1,
         experience = 0,
         traits = {},
+        genes = { vigor = 16, might = 16, focus = 16 },
+        generation = 0,
+        bornAt = 0,
     }
     expectTrue(ProfileSchema.validate(validCreatureProfile), "known creature species accepted")
 
@@ -63,6 +66,9 @@ local function run()
         level = 1,
         experience = 0,
         traits = {},
+        genes = { vigor = 16, might = 16, focus = 16 },
+        generation = 0,
+        bornAt = 0,
     }
     expectFalse(ProfileSchema.validate(unknownCreatureProfile), "unknown creature species rejected")
 
@@ -73,6 +79,9 @@ local function run()
         level = 1,
         experience = 0,
         traits = { [2] = "trait_sparse" },
+        genes = { vigor = 16, might = 16, focus = 16 },
+        generation = 0,
+        bornAt = 0,
     }
     expectFalse(ProfileSchema.validate(sparseTraitsProfile), "sparse creature traits rejected")
 
@@ -121,7 +130,7 @@ local function run()
     local migrated = assert(ProfileSchema.migrate(profile))
     expectTrue(migrated ~= profile, "migration returns independent profile")
     expectTrue(migrated.inventory ~= profile.inventory, "migration deep copies inventory")
-    expectEqual(migrated.schemaVersion, 1, "migration keeps current version")
+    expectEqual(migrated.schemaVersion, 2, "migration keeps current version")
     expectEqual(migrated.inventory.item_wood, 5, "migration preserves inventory")
 
     migrated.inventory.item_wood = 9

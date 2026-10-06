@@ -1,5 +1,6 @@
 local CreatureDefinitions = require("./CreatureDefinitions")
 local CapacityDomain = require("../Economy/CapacityDomain")
+local GameConfig = require("../Config/GameConfig")
 
 local STARTER_SPECIES_ID = "creature_rockhorn"
 local STARTER_UNLOCK_ID = "starter_creature_granted"
@@ -42,6 +43,13 @@ local function createOwnedInstance(profile: any, speciesId: any, generateId: any
         traits = {},
         mutationId = nil,
         assignedBuildingId = nil,
+        genes = {
+            vigor = GameConfig.NEUTRAL_GENE,
+            might = GameConfig.NEUTRAL_GENE,
+            focus = GameConfig.NEUTRAL_GENE,
+        },
+        generation = 0,
+        bornAt = if type(profile.lastSeenAt) == "number" then profile.lastSeenAt else 0,
     }
 
     profile.creatures[instanceId] = creature
